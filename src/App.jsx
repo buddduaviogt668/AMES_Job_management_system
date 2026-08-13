@@ -199,6 +199,23 @@ export default function App() {
   const handleUpdateInvoice = (updatedInv) => setInvoices((prev) => prev.map((i) => (i.id === updatedInv.id ? updatedInv : i)));
   const handleDeleteInvoice = (invoiceId) => setInvoices((prev) => prev.filter((i) => i.id !== invoiceId));
 
+  // Shared AFA numbering (proposal/job = AFA-P-####, invoice = AFA-####) — one numeric sequence
+  const nextAFANumber = () => {
+    let max = 100009;
+    const scan = (list, key) =>
+      list.forEach((it) => {
+        const v = it[key];
+        if (v) {
+          const m = String(v).match(/(\d+)$/);
+          if (m) max = Math.max(max, parseInt(m[1], 10));
+        }
+      });
+    scan(proposals, "proposalNumber");
+    scan(invoices, "invoiceNumber");
+    scan(jobs, "jobNumber");
+    return max + 1;
+  };
+
   // ---- Proposals ----
   const handleSaveProposal = (proposalData) => {
     const nextNum =
@@ -257,7 +274,7 @@ export default function App() {
 
     const newJob = {
       id: "job_" + Date.now(),
-      jobNumber: `AFA-J${nextNum}`,
+      jobNumber: proposal.proposalNumber || `AFA-P-${nextNum}`,
       clientId: proposal.clientId || "cli_new",
       clientName: proposal.clientName,
       businessName: proposal.businessName,
@@ -292,6 +309,38 @@ export default function App() {
   // ---- Jobs ----
   const handleUpdateJob = (updatedJob) => setJobs((prev) => prev.map((j) => (j.id === updatedJob.id ? updatedJob : j)));
   const handleDeleteJob = (jobId) => setJobs((prev) => prev.filter((j) => j.id !== jobId));
+
+  // Create a job directly (calendar booking) with auto-assigned AFA-P-#### number
+  const handleAddJob = (booking) => {
+    const nextNum = nextAFANumber();
+    const newJob = {
+      id: "job_" + Date.now(),
+      jobNumber: `AFA-P-${nextNum}`,
+      clientId: booking.clientId || "cli_new",
+      clientName: booking.clientName || "",
+      businessName: booking.businessName,
+      industryId: booking.industryId || "",
+      lga: booking.lga || "",
+      currentPhase: 1,
+      targetCompletion: booking.targetCompletion || new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+      scheduledDate: booking.scheduledDate || "",
+      scheduledTime: booking.scheduledTime || "",
+      status: "In Progress",
+      attachments: [],
+      activityLog: [
+        {
+          id: "act_" + Date.now(),
+          date: new Date().toISOString().split("T")[0],
+          text: `Job booked on the calendar for ${booking.businessName}.`,
+          type: "milestone",
+        },
+      ],
+      phases: DEFAULT_PHASES.map((ph) => ({ ...ph })),
+    };
+    setJobs((prev) => [newJob, ...prev]);
+    toast(`Job ${newJob.jobNumber} booked`, "success");
+    return newJob;
+  };
 
   // ---- Leads ----
   const handleAddLead = (lead) => setLeads((prev) => [lead, ...prev]);
@@ -497,6 +546,8 @@ export default function App() {
           <Calendar
             jobs={jobs}
             onUpdateJob={handleUpdateJob}
+            onAddJob={handleAddJob}
+            nextJobNumber={`AFA-P-${nextAFANumber()}`}
             setActiveTab={setActiveTab}
           />
         )}

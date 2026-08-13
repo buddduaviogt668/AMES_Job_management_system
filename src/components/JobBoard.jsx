@@ -162,7 +162,7 @@ export default function JobBoard({ jobs, onUpdateJob, onDeleteJob }) {
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: "var(--navy)" }}>
-                      {job.jobNumber || "AFA-J####"}
+                      {job.jobNumber || "AFA-P-####"}
                     </span>
                     <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: isDone ? "var(--success-bg)" : "var(--warning-bg)", color: isDone ? "var(--success)" : "var(--warning-text)" }}>
                       {isDone ? "COMPLETED" : `Phase ${job.currentPhase}/4`}

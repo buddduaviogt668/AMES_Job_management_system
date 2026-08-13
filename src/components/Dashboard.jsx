@@ -169,7 +169,7 @@ export default function Dashboard({ clients, jobs, invoices, proposals, recurrin
                   <div key={job.id} style={{ padding: "12px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-light)", background: "#ffffff" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div>
-                        <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: "var(--amber-dim)" }}>{job.jobNumber || "AFA-J####"}</span>
+                        <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: "var(--amber-dim)" }}>{job.jobNumber || "AFA-P-####"}</span>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{job.businessName}</div>
                       </div>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 999, background: job.status === "Completed" ? "var(--success-bg)" : "var(--warning-bg)", color: job.status === "Completed" ? "var(--success)" : "var(--warning-text)" }}>

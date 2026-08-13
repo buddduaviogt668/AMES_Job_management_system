@@ -318,7 +318,7 @@ export default function InvoiceGenerator({
           >
             {/* Document Header Banner — Sydney Automation Co exact style adapted to AMES */}
             <div style={{ background: "var(--navy-deep)", color: "#ffffff", padding: "20px 36px 16px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
                   <AMESLogo variant="light" size="lg" />
                 </div>
@@ -340,18 +340,22 @@ export default function InvoiceGenerator({
                 </div>
               </div>
 
-              {/* Sub-header info bar */}
-              <div style={{ marginTop: 18, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.85)", fontSize: 11.5 }}>
-                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, paddingRight: 18 }}>
-                    <strong>ABN:</strong> {metaInput(metaDraft.abn, setMeta("abn"), { minWidth: 130, font: "var(--font-mono)", light: true })}
+              {/* Sub-header info bar — single horizontal line, no stacking */}
+              <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.85)", fontSize: 11.5 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px 0" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                    <strong style={{ opacity: 0.7 }}>ABN</strong> {metaInput(metaDraft.abn, setMeta("abn"), { minWidth: 120, font: "var(--font-mono)", light: true })}
                   </span>
-                  <span style={{ height: 12, width: 1, background: "rgba(255,255,255,0.3)" }} />
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, paddingRight: 18 }}>{metaInput(metaDraft.phone, setMeta("phone"), { minWidth: 110, light: true })}</span>
-                  <span style={{ height: 12, width: 1, background: "rgba(255,255,255,0.3)" }} />
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, paddingRight: 18 }}>{metaInput(metaDraft.email, setMeta("email"), { minWidth: 180, light: true })}</span>
-                  <span style={{ height: 12, width: 1, background: "rgba(255,255,255,0.3)" }} />
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>{metaInput(metaDraft.website, setMeta("website"), { minWidth: 150, light: true })}</span>
+                  <span style={{ height: 12, width: 1, background: "rgba(255,255,255,0.3)", margin: "0 16px" }} />
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                    <strong style={{ opacity: 0.7 }}>Phone</strong> {metaInput(metaDraft.phone, setMeta("phone"), { minWidth: 110, light: true })}
+                  </span>
+                  <span style={{ height: 12, width: 1, background: "rgba(255,255,255,0.3)", margin: "0 16px" }} />
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                    <strong style={{ opacity: 0.7 }}>Email</strong> {metaInput(metaDraft.email, setMeta("email"), { minWidth: 170, light: true })}
+                  </span>
+                  <span style={{ height: 12, width: 1, background: "rgba(255,255,255,0.3)", margin: "0 16px" }} />
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>{metaInput(metaDraft.website, setMeta("website"), { minWidth: 150, light: true })}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, flexWrap: "wrap", gap: "8px 16px" }}>
                   <span>

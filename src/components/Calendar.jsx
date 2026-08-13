@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChevronLeft, ChevronRight, CalendarDays, Clock, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Clock, MapPin, Plus } from "lucide-react";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -12,11 +12,13 @@ const fmtDay = (iso) => {
   return d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
 };
 
-export default function Calendar({ jobs, onUpdateJob, setActiveTab }) {
+export default function Calendar({ jobs, onUpdateJob, onAddJob, nextJobNumber, setActiveTab }) {
   const [cursor, setCursor] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(toISO(new Date()));
   const [scheduleJobId, setScheduleJobId] = useState("");
   const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [showBookForm, setShowBookForm] = useState(false);
+  const [book, setBook] = useState({ businessName: "", clientName: "", lga: "", industry: "", time: "09:00" });
 
   const monthStart = startOfMonth(cursor);
   const offset = monthStart.getDay();
@@ -46,6 +48,22 @@ export default function Calendar({ jobs, onUpdateJob, setActiveTab }) {
     delete next.scheduledDate;
     delete next.scheduledTime;
     onUpdateJob(next);
+  };
+
+  const handleBook = () => {
+    if (!book.businessName.trim()) return;
+    const job = onAddJob({
+      businessName: book.businessName.trim(),
+      clientName: book.clientName.trim(),
+      lga: book.lga.trim() || "NSW",
+      industryId: book.industry.trim(),
+      scheduledDate: selectedDate,
+      scheduledTime: book.time,
+    });
+    if (job) {
+      setBook({ businessName: "", clientName: "", lga: "", industry: "", time: "09:00" });
+      setShowBookForm(false);
+    }
   };
 
   return (
@@ -170,6 +188,78 @@ export default function Calendar({ jobs, onUpdateJob, setActiveTab }) {
           </div>
 
           <div style={{ background: "#ffffff", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", padding: 20, boxShadow: "var(--shadow-sm)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                Book New Job
+              </h3>
+              <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, color: "var(--amber-dim)", background: "var(--amber-pale)", padding: "3px 8px", borderRadius: 999 }}>
+                Next: {nextJobNumber}
+              </span>
+            </div>
+
+            {!showBookForm ? (
+              <button
+                onClick={() => setShowBookForm(true)}
+                style={{ width: "100%", padding: "9px 14px", borderRadius: 6, border: "1px dashed var(--navy)", background: "var(--primary-light)", color: "var(--navy)", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+              >
+                <Plus size={14} /> New Booking on {fmtDay(selectedDate)}
+              </button>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <input
+                  type="text"
+                  value={book.businessName}
+                  onChange={(e) => setBook({ ...book, businessName: e.target.value })}
+                  placeholder="Business / Client name *"
+                  style={bookInput}
+                />
+                <input
+                  type="text"
+                  value={book.clientName}
+                  onChange={(e) => setBook({ ...book, clientName: e.target.value })}
+                  placeholder="Contact person"
+                  style={bookInput}
+                />
+                <input
+                  type="text"
+                  value={book.lga}
+                  onChange={(e) => setBook({ ...book, lga: e.target.value })}
+                  placeholder="Council / LGA (e.g. Blacktown)"
+                  style={bookInput}
+                />
+                <input
+                  type="text"
+                  value={book.industry}
+                  onChange={(e) => setBook({ ...book, industry: e.target.value })}
+                  placeholder="Industry (e.g. Restaurant)"
+                  style={bookInput}
+                />
+                <input
+                  type="time"
+                  value={book.time}
+                  onChange={(e) => setBook({ ...book, time: e.target.value })}
+                  style={bookInput}
+                />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={handleBook}
+                    disabled={!book.businessName.trim()}
+                    style={{ flex: 1, padding: "9px 14px", borderRadius: 6, border: "none", background: book.businessName.trim() ? "var(--navy)" : "var(--border-light)", color: book.businessName.trim() ? "#ffffff" : "var(--ink-muted)", fontSize: 13, fontWeight: 700, cursor: book.businessName.trim() ? "pointer" : "not-allowed" }}
+                  >
+                    Book Job → AFA-P-{String(nextJobNumber).replace("AFA-P-", "")}
+                  </button>
+                  <button
+                    onClick={() => setShowBookForm(false)}
+                    style={{ padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border-color)", background: "#ffffff", color: "var(--ink-mid)", fontSize: 13, cursor: "pointer" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ background: "#ffffff", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", padding: 20, boxShadow: "var(--shadow-sm)" }}>
             <h3 style={{ fontSize: 13, fontWeight: 700, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 12 }}>
               Schedule Job on {fmtDay(selectedDate)}
             </h3>
@@ -213,3 +303,5 @@ export default function Calendar({ jobs, onUpdateJob, setActiveTab }) {
     </div>
   );
 }
+
+const bookInput = { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border-color)", fontSize: 13, background: "#ffffff", boxSizing: "border-box" };

@@ -43,7 +43,7 @@ export const INITIAL_CLIENTS = [
 export const INITIAL_JOBS = [
   {
     id: "job_1",
-    jobNumber: "AFA-J1001",
+    jobNumber: "AFA-P-100010",
     clientId: "cli_2",
     clientName: "Maria Santos",
     businessName: "Artisan Kitchen Co",
