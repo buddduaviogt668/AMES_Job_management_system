@@ -321,4 +321,13 @@ textarea:focus {
     border-bottom: none !important;
     resize: none !important;
   }
+  .print-doc input[type="date"],
+  .print-doc input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .print-doc input[type="date"]::-webkit-inner-spin-button,
+  .print-doc input[type="date"]::-webkit-calendar-picker-indicator {
+    display: none;
+  }
 }

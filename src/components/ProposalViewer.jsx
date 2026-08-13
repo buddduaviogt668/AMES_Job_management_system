@@ -329,7 +329,7 @@ export default function ProposalViewer({ proposals, onUpdateProposal, onLaunchJo
             style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border-color)", fontSize: 13.5, background: "#ffffff", minWidth: 240 }}
           >
             {proposals.map((p) => (
-              <option key={p.id} value={p.id}>{p.businessName} — {p.status}</option>
+              <option key={p.id} value={p.id}>{p.proposalNumber ? `${p.proposalNumber} — ` : ""}{p.businessName} — {p.status}</option>
             ))}
           </select>
           <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>Created {selected.createdAt || "—"}</span>

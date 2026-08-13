@@ -105,6 +105,7 @@ export const INITIAL_JOBS = [
 export const INITIAL_PROPOSALS = [
   {
     id: "prop_1",
+    proposalNumber: "AFA-P-100010",
     clientId: "cli_1",
     clientName: "Jonathan Montao",
     businessName: "Montao Quality Bakery",
@@ -204,6 +205,12 @@ export const INITIAL_SETTINGS = {
   address: "Sydney NSW",
   tagline: "Sydney & NSW Food Safety Compliance Specialists",
   signature: "AMES Food Advisory — Ann-Marie Skarmoutsos",
-  invoiceTerms: "Standard terms: payment due 14 days from invoice date. 50% deposit applies to commence engagement, balance on delivery of final documentation.",
+  bankName: "Commonwealth Bank of Australia",
+  bankBsb: "062-000",
+  bankAcct: "1234 5678",
+  bankAcctName: "George Skarmoutsos",
+  stripeLink: "",
+  stripeFeePct: 1.7,
+  invoiceTerms: "1. SERVICES — AMES Food Advisory provides food safety consulting, HACCP / Food Safety Program development, registration pathway advice and compliance documentation as described in the line items above.\n2. FEES & GST — All fees are exclusive of GST unless stated. GST of 10% is payable on all taxable supplies.\n3. DEPOSIT & BILLING — A 50% deposit is required to commence the engagement. The balance is due on delivery of final documentation. Invoices are payable within 14 days of the issue date.\n4. RE-SCHEDULING & CANCELLATION — Site visits rescheduled with less than 48 hours notice may incur a fee equivalent to the visit charge.\n5. COUNCIL & REGULATORY — Final approval remains at the discretion of the relevant Council or the NSW Food Authority. AMES Food Advisory is not liable for third-party decisions.\n6. LIMITATION OF LIABILITY — Our total liability is limited to the fees paid for the services rendered. We are not liable for indirect or consequential loss.\n7. CONFIDENTIALITY — Client information and business records are kept confidential and used solely for the delivery of this engagement.\n8. COMPLIANCE & PROFESSIONAL STANDARDS — Services are delivered in accordance with the Australia New Zealand Food Standards Code, the Food Act 2003 (NSW) and current industry professional standards.",
   gstRate: 10,
 };

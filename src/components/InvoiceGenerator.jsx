@@ -8,31 +8,40 @@ const lineItemsOf = (inv) => (Array.isArray(inv && inv.lineItems) ? inv.lineItem
 
 const fmtMoney = (n) => (isFinite(n) ? n.toFixed(2) : "0.00");
 
-const metaInput = (value, onChange, { width = "auto", bold = false, font = "inherit", size = 12 } = {}) => (
+const metaInput = (value, onChange, { width, minWidth = "auto", bold = false, font = "inherit", size = 12, light = false } = {}) => (
   <input
     value={value || ""}
     onChange={(e) => onChange(e.target.value)}
     style={{
       background: "transparent",
       border: "none",
-      borderBottom: "1px dashed var(--border-color)",
+      borderBottom: light ? "1px dashed rgba(255,255,255,0.35)" : "1px dashed var(--border-color)",
       borderRadius: 0,
       fontSize: size,
-      color: "var(--ink-mid)",
+      color: light ? "rgba(255,255,255,0.9)" : "var(--ink-mid)",
       fontWeight: bold ? 700 : 600,
       outline: "none",
-      width,
+      width: width || "auto",
+      minWidth,
       fontFamily: font,
     }}
   />
 );
 
 const TERMS_FALLBACK =
-  "Standard terms: payment due 14 days from invoice date. 50% deposit applies to commence engagement, balance on delivery of final documentation.";
+  "1. SERVICES — AMES Food Advisory provides food safety consulting, HACCP / Food Safety Program development, registration pathway advice and compliance documentation as described in the line items above.\n" +
+  "2. FEES & GST — All fees are exclusive of GST unless stated. GST of 10% is payable on all taxable supplies.\n" +
+  "3. DEPOSIT & BILLING — A 50% deposit is required to commence the engagement. The balance is due on delivery of final documentation. Invoices are payable within 14 days of the issue date.\n" +
+  "4. RE-SCHEDULING & CANCELLATION — Site visits rescheduled with less than 48 hours notice may incur a fee equivalent to the visit charge.\n" +
+  "5. COUNCIL & REGULATORY — Final approval remains at the discretion of the relevant Council or the NSW Food Authority. AMES Food Advisory is not liable for third-party decisions.\n" +
+  "6. LIMITATION OF LIABILITY — Our total liability is limited to the fees paid for the services rendered. We are not liable for indirect or consequential loss.\n" +
+  "7. CONFIDENTIALITY — Client information and business records are kept confidential and used solely for the delivery of this engagement.\n" +
+  "8. COMPLIANCE & PROFESSIONAL STANDARDS — Services are delivered in accordance with the Australia New Zealand Food Standards Code, the Food Act 2003 (NSW) and current industry professional standards.";
 
 export default function InvoiceGenerator({
   invoices,
   clients,
+  proposals,
   settings,
   onAddInvoice,
   onUpdateInvoice,
@@ -47,7 +56,14 @@ export default function InvoiceGenerator({
     tagline: settings?.tagline || "Sydney & NSW Food Safety Compliance Specialists",
     website: settings?.website || "amesfoodadvisory.com.au",
     phone: settings?.phone || "(02) 7822 0109",
+    email: settings?.email || "ames.food.adv@gmail.com",
     signature: settings?.signature || "AMES Food Advisory — Ann-Marie Skarmoutsos",
+    bankName: settings?.bankName || "Commonwealth Bank of Australia",
+    bankBsb: settings?.bankBsb || "062-000",
+    bankAcct: settings?.bankAcct || "1234 5678",
+    bankAcctName: settings?.bankAcctName || "George Skarmoutsos",
+    stripeLink: settings?.stripeLink || "",
+    stripeFeePct: settings?.stripeFeePct ?? 1.7,
   }));
 
   useEffect(() => {
@@ -57,54 +73,47 @@ export default function InvoiceGenerator({
       tagline: settings?.tagline || "Sydney & NSW Food Safety Compliance Specialists",
       website: settings?.website || "amesfoodadvisory.com.au",
       phone: settings?.phone || "(02) 7822 0109",
+      email: settings?.email || "ames.food.adv@gmail.com",
       signature: settings?.signature || "AMES Food Advisory — Ann-Marie Skarmoutsos",
+      bankName: settings?.bankName || "Commonwealth Bank of Australia",
+      bankBsb: settings?.bankBsb || "062-000",
+      bankAcct: settings?.bankAcct || "1234 5678",
+      bankAcctName: settings?.bankAcctName || "George Skarmoutsos",
+      stripeLink: settings?.stripeLink || "",
+      stripeFeePct: settings?.stripeFeePct ?? 1.7,
     });
   }, [settings]);
 
   const setMeta = (key) => (val) => setMetaDraft((d) => ({ ...d, [key]: val }));
   const setInv = (patch) => setSelectedInvoice((prev) => (prev ? { ...prev, ...patch } : prev));
 
-  const getNextInvoiceNumber = () => {
-    const maxNum = invoices.reduce((acc, inv) => {
-      const match = inv && inv.invoiceNumber && String(inv.invoiceNumber).match(/^AFA-(\d+)$/);
-      return match ? Math.max(acc, parseInt(match[1], 10)) : acc;
-    }, 100009);
-    if (isCreating && selectedInvoice) {
-      const m = String(selectedInvoice.invoiceNumber).match(/^AFA-(\d+)$/);
-      if (m) return `AFA-${Math.max(maxNum, parseInt(m[1], 10)) + 1}`;
-    }
-    return `AFA-${maxNum + 1}`;
-  };
-
-  const handleApplyClient = (clientId) => {
-    const client = clients.find((c) => c.id === clientId);
-    if (!client) return;
-    setSelectedInvoice((prev) => ({
-      ...prev,
-      clientName: client.clientName || "",
-      businessName: client.businessName || client.clientName || "",
-      email: client.email || "",
-      address: client.address || "",
-    }));
-  };
-
   const handleOpenNewInvoice = () => {
+    const maxNum = [...invoices, ...proposals].reduce((acc, item) => {
+      const raw = item && (item.invoiceNumber || item.proposalNumber);
+      const m = typeof raw === "string" && raw.match(/^AFA(?:-P-)?(\d+)$/);
+      return m ? Math.max(acc, parseInt(m[1], 10)) : acc;
+    }, 100009);
+    const nextNum = maxNum + 1;
+    const invNumber = `AFA-${nextNum}`;
+    const proposalRef = `AFA-P-${nextNum}`;
+
     const first = clients[0] || {};
     const newInv = {
       id: "inv_" + Date.now(),
-      invoiceNumber: getNextInvoiceNumber(),
-      clientName: first.clientName || "",
-      businessName: first.businessName || first.clientName || "",
-      email: first.email || "",
-      address: first.address || "",
+      invoiceNumber: invNumber,
+      jobRef: proposalRef,
+      clientName: first.clientName || "Jonathan Montao",
+      businessName: first.businessName || "Montao Quality Bakery",
+      email: first.email || "jonathan@montaobakery.com.au",
+      address: first.address || "123 Market St, Blacktown NSW",
       issueDate: new Date().toISOString().split("T")[0],
       dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
       status: "Unpaid",
-      terms: settings?.invoiceTerms || TERMS_FALLBACK,
       lineItems: [
         { description: "Site Audit / Gap Assessment Fee (Phase 1)", priceExGst: 595.0, qty: 1 },
       ],
     };
+
     setSelectedInvoice(newInv);
     setIsCreating(true);
     toast(`New draft ${newInv.invoiceNumber} ready — fill in details, then Save Invoice Record`, "info");
@@ -130,7 +139,7 @@ export default function InvoiceGenerator({
 
   const handleSaveInvoice = () => {
     if (!selectedInvoice) return;
-    const metaChanged = ["businessName", "abn", "tagline", "website", "phone", "signature"].some(
+    const metaChanged = ["businessName", "abn", "tagline", "website", "phone", "email", "signature", "bankName", "bankBsb", "bankAcct", "bankAcctName", "stripeLink", "stripeFeePct"].some(
       (k) => metaDraft[k] !== (settings && settings[k])
     );
     if (metaChanged && onUpdateSettings) onUpdateSettings(metaDraft);
@@ -200,6 +209,8 @@ export default function InvoiceGenerator({
     : 0;
   const gstAmount = subtotalExGst * 0.1;
   const totalInclGst = subtotalExGst + gstAmount;
+  const stripeFee = totalInclGst * (Number(metaDraft.stripeFeePct) || 0) / 100;
+  const stripeCharged = totalInclGst + stripeFee;
 
   return (
     <div className="invoice-page" style={{ padding: "32px 36px", maxWidth: 1200, margin: "0 auto" }}>
@@ -305,125 +316,169 @@ export default function InvoiceGenerator({
               overflow: "hidden",
             }}
           >
-            {/* Document Header — website header + logo */}
-            <div style={{ background: "var(--navy-deep)", padding: "28px 40px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <AMESLogo variant="light" size="lg" />
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div className="brand-font" style={{ fontSize: 22, fontWeight: 700, color: "var(--amber)", letterSpacing: "0.02em" }}>
-                  TAX INVOICE
+            {/* Document Header Banner — Sydney Automation Co exact style adapted to AMES */}
+            <div style={{ background: "var(--navy-deep)", color: "#ffffff", padding: "20px 36px 16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <AMESLogo variant="light" size="lg" />
                 </div>
-                <input
-                  className="mono"
-                  value={selectedInvoice.invoiceNumber || ""}
-                  onChange={(e) => setInv({ invoiceNumber: e.target.value })}
-                  title="Invoice number — editable"
-                  style={{
-                    fontSize: 16, fontWeight: 700, color: "#ffffff", marginTop: 2, textAlign: "right",
-                    background: "transparent", border: "none", borderBottom: "1px dashed rgba(255,255,255,0.35)", outline: "none",
-                    fontFamily: "var(--font-mono)", width: 210,
-                  }}
-                />
-                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 6 }}>
-                  OFFICIAL
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: "var(--amber)", letterSpacing: "0.06em", fontFamily: "Georgia, serif" }}>
+                    TAX INVOICE
+                  </div>
+                  <input
+                    value={selectedInvoice.invoiceNumber || ""}
+                    onChange={(e) => setInv({ invoiceNumber: e.target.value })}
+                    title="Invoice number — editable"
+                    placeholder="AFA-100010"
+                    style={{
+                      fontSize: 18, fontWeight: 800, color: "#ffffff", marginTop: 2, textAlign: "right",
+                      background: "transparent", border: "none", borderBottom: "1px dashed rgba(255,255,255,0.4)", outline: "none",
+                      fontFamily: "var(--font-mono)", width: 180,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Sub-header info bar */}
+              <div style={{ marginTop: 18, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.85)", fontSize: 11.5 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, paddingRight: 18 }}>
+                    <strong>ABN:</strong> {metaInput(metaDraft.abn, setMeta("abn"), { minWidth: 130, font: "var(--font-mono)", light: true })}
+                  </span>
+                  <span style={{ height: 12, width: 1, background: "rgba(255,255,255,0.3)" }} />
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, paddingRight: 18 }}>{metaInput(metaDraft.phone, setMeta("phone"), { minWidth: 110, light: true })}</span>
+                  <span style={{ height: 12, width: 1, background: "rgba(255,255,255,0.3)" }} />
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, paddingRight: 18 }}>{metaInput(metaDraft.email, setMeta("email"), { minWidth: 180, light: true })}</span>
+                  <span style={{ height: 12, width: 1, background: "rgba(255,255,255,0.3)" }} />
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>{metaInput(metaDraft.website, setMeta("website"), { minWidth: 150, light: true })}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, flexWrap: "wrap", gap: "8px 16px" }}>
+                  <span>
+                    Issued: <input type="date" value={selectedInvoice.issueDate || ""} onChange={(e) => setInv({ issueDate: e.target.value })} style={{ background: "transparent", border: "none", color: "#ffffff", fontWeight: 700, fontSize: 11.5 }} />
+                  </span>
+                  <span>
+                    Due: <input type="date" value={selectedInvoice.dueDate || ""} onChange={(e) => setInv({ dueDate: e.target.value })} style={{ background: "transparent", border: "none", color: "var(--amber)", fontWeight: 700, fontSize: 11.5 }} />
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div style={{ padding: "32px 40px" }}>
-              {/* Meta row */}
-              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
-                <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-                  <strong style={{ color: "var(--ink-mid)" }}>
-                    {metaInput(metaDraft.businessName, setMeta("businessName"), { width: 200, bold: true })}
-                  </strong> &nbsp;·&nbsp; ABN: {metaInput(metaDraft.abn, setMeta("abn"), { width: 130, font: "var(--font-mono)" })}
-                  <br />
-                  {metaInput(metaDraft.tagline, setMeta("tagline"), { width: 300 })}
-                  &nbsp;·&nbsp; {metaInput(metaDraft.website, setMeta("website"), { width: 190 })}
-                  &nbsp;·&nbsp; {metaInput(metaDraft.phone, setMeta("phone"), { width: 110 })}
+            <div style={{ padding: "28px 36px" }}>
+              {/* BILL TO & DETAILS Split Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 32, marginBottom: 24, borderBottom: "1px solid var(--border-color)", paddingBottom: 20 }}>
+                {/* Left: Bill To */}
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "var(--amber-dim)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+                    BILL TO
+                  </div>
+                  <input
+                    value={selectedInvoice.businessName || ""}
+                    onChange={(e) => setInv({ businessName: e.target.value })}
+                    placeholder="Business / Client Name"
+                    style={{ fontSize: 17, fontWeight: 800, color: "var(--navy)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none", width: "100%" }}
+                  />
+                  <div style={{ marginTop: 4 }}>
+                    <input
+                      value={selectedInvoice.clientName || ""}
+                      onChange={(e) => setInv({ clientName: e.target.value })}
+                      placeholder="Attention Contact Person"
+                      style={{ fontSize: 13, color: "var(--text-dark)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none", width: "100%" }}
+                    />
+                  </div>
+                  <input
+                    value={selectedInvoice.address || ""}
+                    onChange={(e) => setInv({ address: e.target.value })}
+                    placeholder="Street Address"
+                    style={{ fontSize: 12.5, color: "var(--ink-soft)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none", width: "100%", marginTop: 4 }}
+                  />
+                  <input
+                    value={selectedInvoice.email || ""}
+                    onChange={(e) => setInv({ email: e.target.value })}
+                    placeholder="Email Address"
+                    style={{ fontSize: 12.5, color: "var(--ink-soft)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none", width: "100%", marginTop: 2 }}
+                  />
                 </div>
-                <div style={{ display: "flex", gap: 24, fontSize: 12.5 }}>
-                  <div>
-                    <div style={{ fontWeight: 800, color: "var(--navy)", textTransform: "uppercase", fontSize: 11, letterSpacing: "0.04em" }}>Date</div>
+
+                {/* Right: Details Key-Value List */}
+                <div style={{ borderLeft: "1px solid var(--border-light)", paddingLeft: 24 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                    DETAILS
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", rowGap: 8, fontSize: 13 }}>
+                    <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Invoice No:</span>
+                    <input
+                      className="mono"
+                      value={selectedInvoice.invoiceNumber || ""}
+                      onChange={(e) => setInv({ invoiceNumber: e.target.value })}
+                      style={{ fontSize: 13, fontWeight: 800, color: "var(--navy)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none" }}
+                    />
+
+                    <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Job Ref:</span>
+                    <input
+                      className="mono"
+                      value={selectedInvoice.jobRef || "AFA-P-100010"}
+                      onChange={(e) => setInv({ jobRef: e.target.value })}
+                      style={{ fontSize: 13, fontWeight: 800, color: "var(--navy)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none" }}
+                    />
+
+                    <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Site Date:</span>
                     <input
                       type="date"
                       value={selectedInvoice.issueDate || ""}
                       onChange={(e) => setInv({ issueDate: e.target.value })}
-                      style={{ fontSize: 12.5, border: "1px solid var(--border-color)", borderRadius: 4, padding: "2px 4px", color: "var(--ink)", width: 132 }}
+                      style={{ fontSize: 12.5, border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none" }}
                     />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 800, color: "var(--navy)", textTransform: "uppercase", fontSize: 11, letterSpacing: "0.04em" }}>Due Date</div>
-                    <input
-                      type="date"
-                      value={selectedInvoice.dueDate || ""}
-                      onChange={(e) => setInv({ dueDate: e.target.value })}
-                      style={{ fontSize: 12.5, border: "1px solid var(--border-color)", borderRadius: 4, padding: "2px 4px", color: "var(--ink)", width: 132 }}
-                    />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 800, color: "var(--navy)", textTransform: "uppercase", fontSize: 11, letterSpacing: "0.04em" }}>Status</div>
-                    <div style={{ color: selectedInvoice.status === "Paid" ? "var(--success)" : "var(--amber-dim)", fontWeight: 700 }}>
-                      {selectedInvoice.status === "Paid" ? `PAID${selectedInvoice.paidDate ? ` ${selectedInvoice.paidDate}` : ""}` : "UNPAID"}
-                    </div>
+
+                    <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Terms:</span>
+                    <select
+                      value={selectedInvoice.paymentTermsLabel || "due on invoice"}
+                      onChange={(e) => {
+                        const label = e.target.value;
+                        const days = label === "due on invoice" ? 0 : parseInt(label, 10);
+                        let due = selectedInvoice.issueDate;
+                        if (due) {
+                          const d = new Date(due + "T00:00:00");
+                          d.setDate(d.getDate() + (isNaN(days) ? 0 : days));
+                          const y = d.getFullYear();
+                          const m = String(d.getMonth() + 1).padStart(2, "0");
+                          const dd = String(d.getDate()).padStart(2, "0");
+                          due = `${y}-${m}-${dd}`;
+                        }
+                        setInv({ paymentTermsLabel: label, dueDate: due });
+                      }}
+                      style={{ fontSize: 13, fontWeight: 700, color: "var(--navy)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none", padding: "2px 0" }}
+                    >
+                      <option value="due on invoice">Due on invoice</option>
+                      <option value="7 days">7 days</option>
+                      <option value="14 days">14 days</option>
+                      <option value="30 days">30 days</option>
+                    </select>
                   </div>
                 </div>
               </div>
 
-              {/* Bill To */}
-              <div style={{ marginBottom: 24, background: "var(--stone)", padding: 16, borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "var(--amber-dim)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    Bill To
-                  </div>
-                  <select
-                    className="no-print"
-                    value=""
-                    onChange={(e) => e.target.value && handleApplyClient(e.target.value)}
-                    style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border-color)", background: "#ffffff" }}
-                  >
-                    <option value="">Link from CRM...</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>{c.businessName}</option>
-                    ))}
-                  </select>
+              {/* SCOPE OF WORK Section */}
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+                  SCOPE OF WORK
                 </div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-dark)" }}>
-                  <input
-                    value={selectedInvoice.businessName || ""}
-                    onChange={(e) => setInv({ businessName: e.target.value })}
-                    placeholder="Business name"
-                    style={{ fontSize: 15, fontWeight: 700, color: "var(--text-dark)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none", width: "100%" }}
-                  />
-                </div>
-                <div style={{ fontSize: 13, color: "var(--text-dark)" }}>
-                  Attn:{" "}
-                  <input
-                    value={selectedInvoice.clientName || ""}
-                    onChange={(e) => setInv({ clientName: e.target.value })}
-                    placeholder="Contact name"
-                    style={{ fontSize: 13, color: "var(--text-dark)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none", width: 220 }}
-                  />
-                </div>
-                <input
-                  value={selectedInvoice.address || ""}
-                  onChange={(e) => setInv({ address: e.target.value })}
-                  placeholder="Street address"
-                  style={{ fontSize: 12.5, color: "var(--ink-soft)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none", width: "100%", display: "block", marginTop: 2 }}
-                />
-                <input
-                  value={selectedInvoice.email || ""}
-                  onChange={(e) => setInv({ email: e.target.value })}
-                  placeholder="Email address"
-                  style={{ fontSize: 12.5, color: "var(--ink-soft)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none", width: "100%", display: "block", marginTop: 2 }}
+                <textarea
+                  value={selectedInvoice.scopeText || "- On-site kitchen fit-out gap assessment against NSW EHO inspection criteria\n- HACCP Food Safety Program & SOP documentation build\n- Regulatory approval pathway guidance and council lodgement check"}
+                  onChange={(e) => setInv({ scopeText: e.target.value })}
+                  rows={4}
+                  style={{
+                    width: "100%", fontSize: 13, color: "var(--text-dark)", lineHeight: 1.6,
+                    border: "none", background: "#fcfbf7", borderRadius: 6, padding: "10px 12px", borderLeft: "3px solid var(--navy)",
+                    outline: "none", fontFamily: "inherit", resize: "vertical",
+                  }}
                 />
               </div>
 
               {/* Quick Catalog Adder */}
               <div className="no-print" style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6 }}>
-                  + Quick Add Service:
+                  + Add Catalog Item:
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {AMES_PRICING_CATALOG.map((cat) => (
@@ -439,58 +494,51 @@ export default function InvoiceGenerator({
                 </div>
               </div>
 
-              {/* Line Items Table */}
+              {/* Line Items Table — Sydney Automation Co exact table style */}
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, textAlign: "left", marginBottom: 24 }}>
                 <thead>
                   <tr style={{ background: "var(--navy)", color: "#ffffff" }}>
-                    <th style={{ padding: "10px 12px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em" }}>Description</th>
-                    <th style={{ padding: "10px 12px", width: 60, textAlign: "center" }}>Qty</th>
-                    <th style={{ padding: "10px 12px", width: 130, textAlign: "right" }}>Price (ex GST)</th>
-                    <th style={{ padding: "10px 12px", width: 130, textAlign: "right" }}>Amount (ex GST)</th>
-                    <th style={{ padding: "10px 12px", width: 40 }}></th>
+                    <th style={{ padding: "10px 12px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>DESCRIPTION</th>
+                    <th style={{ padding: "10px 12px", width: 60, textAlign: "center", fontSize: 11, fontWeight: 800, textTransform: "uppercase" }}>QTY</th>
+                    <th style={{ padding: "10px 12px", width: 140, textAlign: "right", fontSize: 11, fontWeight: 800, textTransform: "uppercase" }}>UNIT ($)</th>
+                    <th style={{ padding: "10px 12px", width: 140, textAlign: "right", fontSize: 11, fontWeight: 800, textTransform: "uppercase" }}>AMOUNT ($)</th>
+                    <th style={{ padding: "10px 12px", width: 30 }} className="no-print"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {lineItemsOf(selectedInvoice).length === 0 && (
-                    <tr>
-                      <td colSpan={5} style={{ padding: "18px 12px", textAlign: "center", color: "var(--ink-muted)", fontSize: 12.5 }}>
-                        No line items yet — add a service above.
-                      </td>
-                    </tr>
-                  )}
                   {lineItemsOf(selectedInvoice).map((item, idx) => (
-                    <tr key={idx} style={{ borderBottom: "1px solid var(--stone-mid)" }}>
-                      <td style={{ padding: "10px 12px" }}>
-                        <input
-                          type="text"
+                    <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                      <td style={{ padding: "12px" }}>
+                        <textarea
+                          rows={2}
                           value={item.description || ""}
                           onChange={(e) => handleUpdateLine(idx, { description: e.target.value })}
-                          style={{ width: "100%", border: "none", background: "transparent", fontSize: 13, color: "var(--text-dark)", fontWeight: 600 }}
+                          style={{ width: "100%", border: "none", background: "transparent", fontSize: 13, color: "var(--text-dark)", fontWeight: 700, fontFamily: "inherit", resize: "vertical", outline: "none" }}
                         />
                       </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                      <td style={{ padding: "12px", textAlign: "center", verticalAlign: "top" }}>
                         <input
                           type="number"
                           min="1"
                           value={Number(item.qty) || 1}
                           onChange={(e) => handleUpdateLine(idx, { qty: parseInt(e.target.value, 10) || 1 })}
-                          style={{ width: 52, border: "1px solid var(--border-color)", borderRadius: 4, padding: "2px 4px", textAlign: "center" }}
+                          style={{ width: 44, border: "none", borderBottom: "1px dashed var(--border-color)", textAlign: "center", fontSize: 13, background: "transparent" }}
                         />
                       </td>
-                      <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                      <td style={{ padding: "12px", textAlign: "right", verticalAlign: "top" }}>
                         $<input
                           type="number"
                           step="0.01"
                           value={Number(item.priceExGst) || 0}
                           onChange={(e) => handleUpdateLine(idx, { priceExGst: parseFloat(e.target.value) || 0 })}
-                          style={{ width: 80, border: "1px solid var(--border-color)", borderRadius: 4, padding: "2px 4px", textAlign: "right" }}
+                          style={{ width: 85, border: "none", borderBottom: "1px dashed var(--border-color)", textAlign: "right", fontSize: 13, background: "transparent" }}
                         />
                       </td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700 }}>
+                      <td style={{ padding: "12px", textAlign: "right", fontWeight: 800, fontSize: 14, verticalAlign: "top", color: "var(--navy)" }}>
                         ${fmtMoney((Number(item.priceExGst) || 0) * (Number(item.qty) || 1))}
                       </td>
-                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                        <button className="no-print" onClick={() => handleRemoveLineItem(idx)} style={{ border: "none", background: "none", color: "var(--danger)", cursor: "pointer" }}>
+                      <td style={{ padding: "12px", textAlign: "center", verticalAlign: "top" }} className="no-print">
+                        <button onClick={() => handleRemoveLineItem(idx)} style={{ border: "none", background: "none", color: "var(--danger)", cursor: "pointer" }}>
                           <Trash2 size={14} />
                         </button>
                       </td>
@@ -499,41 +547,112 @@ export default function InvoiceGenerator({
                 </tbody>
               </table>
 
-              {/* Totals Panel */}
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 28 }}>
-                <div style={{ width: 320, background: "var(--stone)", padding: 16, borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, color: "var(--ink-soft)", marginBottom: 6 }}>
-                    <span>Subtotal (ex GST):</span>
-                    <span>${fmtMoney(subtotalExGst)}</span>
+              {/* Totals Summary Panel — Sydney Automation Co exact style */}
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 36 }}>
+                <div style={{ width: 340 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--border-light)", fontSize: 13.5, color: "var(--ink-soft)" }}>
+                    <span>Subtotal (Ex GST)</span>
+                    <span style={{ fontWeight: 700, color: "var(--navy)" }}>${fmtMoney(subtotalExGst)}</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, color: "var(--ink-soft)", marginBottom: 8 }}>
-                    <span>GST (10%):</span>
-                    <span>${fmtMoney(gstAmount)}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--border-light)", fontSize: 13.5, color: "var(--ink-soft)" }}>
+                    <span>GST (10%)</span>
+                    <span style={{ fontWeight: 700, color: "var(--navy)" }}>${fmtMoney(gstAmount)}</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700, color: "var(--navy)", borderTop: "1px solid var(--border-color)", paddingTop: 8 }}>
-                    <span>Total (incl GST):</span>
-                    <span>${fmtMoney(totalInclGst)}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", background: "var(--navy)", borderRadius: 8, marginTop: 8, color: "#ffffff", alignItems: "center" }}>
+                    <span style={{ fontSize: 15, fontWeight: 900, letterSpacing: "0.05em" }}>TOTAL DUE</span>
+                    <span style={{ fontSize: 22, fontWeight: 900, color: "var(--amber)", fontFamily: "var(--font-mono)" }}>${fmtMoney(totalInclGst)}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", marginTop: 8, background: "#635bff", color: "#ffffff", borderRadius: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 800 }}>If paying by card (incl. {metaDraft.stripeFeePct}% Stripe fee)</span>
+                    <span style={{ fontSize: 17, fontWeight: 900, fontFamily: "var(--font-mono)" }}>${fmtMoney(stripeCharged)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Document Footer */}
-              <div style={{ borderTop: "2px solid var(--navy)", paddingTop: 16, marginBottom: 24 }}>
-                <div style={{ fontSize: 12.5, color: "var(--ink-soft)", fontStyle: "italic" }}>
+              {/* PAGE 2 / BOTTOM PAYMENT — Bank Transfer + Card (Stripe) */}
+              <div style={{ borderTop: "2px solid var(--navy)", paddingTop: 24, marginTop: 32 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 28 }}>
+                  {/* Bank Transfer */}
+                  <div style={{ border: "1.5px solid #0e1f3d", borderRadius: 10, padding: 16, background: "#ffffff" }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>🏦</span> Bank Transfer
+                    </div>
+                    <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.9 }}>
+                      <div>
+                        <span style={{ color: "var(--ink-soft)" }}><strong>Account:</strong> </span>
+                        {metaInput(metaDraft.bankAcctName, setMeta("bankAcctName"), { width: 200, bold: true, size: 13 })}
+                      </div>
+                      <div>
+                        <span style={{ color: "var(--ink-soft)" }}><strong>BSB:</strong> </span>
+                        {metaInput(metaDraft.bankBsb, setMeta("bankBsb"), { width: 90, font: "var(--font-mono)", size: 13 })}
+                      </div>
+                      <div>
+                        <span style={{ color: "var(--ink-soft)" }}><strong>Acct No:</strong> </span>
+                        {metaInput(metaDraft.bankAcct, setMeta("bankAcct"), { width: 110, font: "var(--font-mono)", size: 13 })}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--amber-dim)", fontWeight: 700, marginTop: 6 }}>
+                        Reference: {selectedInvoice.invoiceNumber}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Payment (Stripe) — auto-calculates total incl. fee */}
+                  <div style={{ border: "1.5px solid #635bff", borderRadius: 10, padding: 16, background: "#ffffff" }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: "#635bff", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>💳</span> Card Payment — Stripe
+                    </div>
+                    <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.9 }}>
+                      <div>
+                        <span style={{ color: "var(--ink-soft)" }}><strong>Payment link:</strong> </span>
+                        {metaInput(metaDraft.stripeLink, setMeta("stripeLink"), { width: 240, size: 12.5 })}
+                      </div>
+                      <div style={{ marginTop: 6, padding: "10px 12px", background: "#f6f7f9", borderRadius: 8, fontSize: 12.5, lineHeight: 1.8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ color: "var(--ink-soft)" }}>Invoice total</span>
+                          <span style={{ fontWeight: 700, color: "var(--navy)" }}>${fmtMoney(totalInclGst)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ color: "var(--ink-soft)" }}>
+                            Stripe fee ({metaInput(metaDraft.stripeFeePct, setMeta("stripeFeePct"), { width: 34, size: 12.5 })}%)
+                          </span>
+                          <span style={{ fontWeight: 700, color: "var(--danger)" }}>+${fmtMoney(stripeFee)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border-color)", paddingTop: 6, marginTop: 6 }}>
+                          <span style={{ color: "var(--ink)" }}><strong>Amount to pay by card</strong></span>
+                          <span style={{ fontWeight: 900, fontSize: 16, color: "#635bff" }}>${fmtMoney(stripeCharged)}</span>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
+                        Pay instantly online by card. Stripe processing fee of {metaDraft.stripeFeePct}% is included in the amount charged.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* TERMS & CONDITIONS Footer */}
+                <div style={{ background: "#faf9f5", padding: 14, borderRadius: 8, border: "1px solid var(--border-light)", marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+                    TERMS &amp; CONDITIONS
+                  </div>
                   <textarea
                     value={selectedInvoice.terms || metaDraft.invoiceTerms || TERMS_FALLBACK}
                     onChange={(e) => setInv({ terms: e.target.value })}
-                    rows={2}
-                    style={{ width: "100%", fontSize: 12.5, color: "var(--ink-soft)", fontStyle: "italic", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none", resize: "vertical", lineHeight: 1.5, fontFamily: "inherit" }}
+                    rows={4}
+                    style={{
+                      width: "100%", fontSize: 11.5, color: "var(--ink-soft)", lineHeight: 1.5,
+                      border: "none", background: "transparent", outline: "none", resize: "vertical", fontFamily: "inherit",
+                    }}
                   />
                 </div>
-                <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
-                  {metaInput(metaDraft.signature, setMeta("signature"), { width: 420 })} &nbsp;|&nbsp; {metaDraft.website} · {metaDraft.phone}
+
+                <div style={{ background: "var(--navy)", color: "#ffffff", padding: "12px 18px", borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, fontWeight: 700 }}>
+                  <span>THANK YOU FOR CHOOSING AMES FOOD ADVISORY.</span>
+                  <span style={{ opacity: 0.85 }}>{metaDraft.email} • {metaDraft.phone}</span>
                 </div>
               </div>
 
               {/* Save / Status Controls */}
-              <div className="no-print" style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+              <div className="no-print" style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center", marginTop: 24 }}>
                 {selectedInvoice.status === "Paid" ? (
                   <button className="btn btn-secondary" onClick={handleTogglePaid}>
                     <Undo2 size={15} /> Mark Unpaid

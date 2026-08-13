@@ -36,6 +36,7 @@ const INITIAL_INVOICES = [
   {
     id: "inv_100010",
     invoiceNumber: "AFA-100010",
+    proposalRef: "AFA-P-100010",
     clientName: "Jonathan Montao",
     businessName: "Montao Quality Bakery",
     email: "jonathan@montaobakery.com.au",
@@ -120,8 +121,8 @@ export default function App() {
     let max = 100009;
     const normalized = parsed.map((inv) => {
       const raw = inv && inv.invoiceNumber;
-      const m = typeof raw === "string" && raw.match(/^AFA-(\d+)$/);
-      const num = m ? raw : `AFA-${max + 1}`;
+      const m = typeof raw === "string" && raw.match(/^AFA(?:-P-|_P_|-)?(\d+)$/);
+      const num = m ? `AFA-${m[1]}` : `AFA-${max + 1}`;
       const n = parseInt(num.slice(4), 10);
       if (n > max) max = n;
       const oldItems = Array.isArray(inv && inv.items)
@@ -135,6 +136,7 @@ export default function App() {
         ...(inv || {}),
         id: (inv && inv.id) || "inv_" + num.replace(/\D/g, ""),
         invoiceNumber: num,
+        jobRef: (inv && inv.jobRef) || `AFA-P-${n}`,
         clientName: (inv && inv.clientName) || "",
         businessName: (inv && inv.businessName) || "",
         issueDate: (inv && inv.issueDate) || "",
@@ -199,8 +201,17 @@ export default function App() {
 
   // ---- Proposals ----
   const handleSaveProposal = (proposalData) => {
+    const nextNum =
+      proposals.reduce((acc, p) => {
+        const m = p.proposalNumber && String(p.proposalNumber).match(/^AFA-P-(\d+)$/);
+        return m ? Math.max(acc, parseInt(m[1], 10)) : acc;
+      }, invoices.reduce((acc, i) => {
+        const m = i.invoiceNumber && String(i.invoiceNumber).match(/^AFA-P-(\d+)$/);
+        return m ? Math.max(acc, parseInt(m[1], 10)) : acc;
+      }, 100009)) + 1;
     const proposal = {
       id: "prop_" + Date.now(),
+      proposalNumber: `AFA-P-${nextNum}`,
       clientId: proposalData.clientId || (proposalData.clientName && clients.find((c) => c.clientName === proposalData.clientName)?.id) || "cli_new",
       status: "Draft",
       createdAt: new Date().toISOString().split("T")[0],
@@ -213,7 +224,7 @@ export default function App() {
         c.businessName === proposal.businessName ? { ...c, status: "Active Proposal" } : c
       )
     );
-    toast(`Proposal generated for ${proposal.businessName}`, "success");
+    toast(`Proposal ${proposal.proposalNumber} generated for ${proposal.businessName}`, "success");
   };
 
   const handleUpdateProposal = (id, patch) => {
@@ -465,6 +476,7 @@ export default function App() {
           <InvoiceGenerator
             invoices={invoices}
             clients={clients}
+            proposals={proposals}
             settings={settings}
             onAddInvoice={handleAddInvoice}
             onUpdateInvoice={handleUpdateInvoice}
