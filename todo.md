@@ -24689,3 +24689,9 @@
 - [x] Rework the invoice document structure to match the attached MSS Manning Support Services deposit tax invoice reference.
 - [x] Preserve AMES Food Advisory branding, website, business contact details, invoice numbering, and invoice-type toggle.
 - [x] Verify the reference-matched layout, deposit calculations, print output, and responsive presentation before pushing.
+
+## Current request: correct messy multi-page PDF output
+- [x] Audit why the invoice generator PDF expands to three pages and identify all print-flow contributors.
+- [x] Separate print-only invoice markup from interactive editor controls and card-payment UI.
+- [x] Constrain the generated output to a clean two-page A4 invoice matching the attached reference.
+- [x] Generate and inspect an actual PDF, then rerun tests/build before pushing the correction.

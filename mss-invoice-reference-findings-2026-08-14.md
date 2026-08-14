@@ -27,3 +27,7 @@ The updated local portal rendered the compact AMES navy header, AMES Food Adviso
 Switching the same draft to `50% Deposit Invoice` rendered `DEPOSIT TAX INVOICE`, `Invoice Type: 50% Deposit Invoice`, `Payment Terms: 50% deposit due now`, full engagement subtotal, full project total, `This deposit invoice — 50%`, `Balance on final documentation`, and `OUTSTANDING OWED NOW` with the 50% amount. The selected draft remained unpaid and was not saved or sent during verification.
 
 A lower-page browser check confirmed the reference-style bank-transfer panel, `OUTSTANDING OWED NOW` bar, compact card-payment editor, and two-column terms section with the AMES Food Advisory closing line. The terms editor remains visible in the interactive portal for editing but is marked `no-print`, so it is excluded from the printed reference output. The print stylesheet forces `.invoice-terms-page` to begin on a new page.
+
+## Actual PDF inspection after first print-only fix
+
+The actual Chromium-generated PDF is A4 but still reports 3 pages. Page 1 is a clean, compact invoice matching the reference hierarchy. Page 2 is a clean, compact two-column Terms & Conditions page matching the reference. The third page is not caused by visible content overflow on the first two pages; it is caused by redundant page-break rules (`break-after` on page one combined with `break-before` on page two, plus the fixed-height sheet behavior) producing an extra blank/trailing page. The next correction should use one page-break mechanism only and avoid a trailing break after page two.

@@ -358,3 +358,399 @@ textarea:focus {
     grid-template-columns: 1fr 1fr !important;
   }
 }
+
+
+/* Dedicated printable invoice: hidden in the editor, rendered as two fixed A4 sheets */
+.invoice-print-only {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 210mm;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .invoice-editor,
+  .invoice-page > .no-print,
+  .invoice-page > .invoice-layout > .no-print,
+  .invoice-page > .invoice-layout > div > .no-print {
+    display: none !important;
+  }
+
+  .invoice-print-only {
+    display: block !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #1f2933;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .print-sheet {
+    box-sizing: border-box;
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    padding: 14mm 16mm 13mm;
+    background: #ffffff;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .print-sheet-page-two {
+    break-before: page;
+    page-break-before: always;
+    break-after: auto;
+    page-break-after: auto;
+    padding-top: 14mm;
+  }
+
+  .print-header {
+    position: relative;
+    box-sizing: border-box;
+    height: 27mm;
+    padding: 5mm 6mm 3mm;
+    border-radius: 1.5mm;
+    background: #142635;
+    color: #ffffff;
+  }
+
+  .print-header-title {
+    position: absolute;
+    top: 5mm;
+    right: 6mm;
+    color: #d69246;
+    text-align: right;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 15pt;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+
+  .print-header-title strong {
+    display: block;
+    margin-top: 1mm;
+    color: #ffffff;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8.5pt;
+    letter-spacing: 0;
+  }
+
+  .print-contact-strip {
+    position: absolute;
+    right: 6mm;
+    bottom: 3mm;
+    left: 6mm;
+    display: flex;
+    justify-content: space-between;
+    gap: 5mm;
+    border-top: 0.25mm solid rgba(255,255,255,0.28);
+    padding-top: 2mm;
+    color: rgba(255,255,255,0.82);
+    font-size: 7pt;
+    white-space: nowrap;
+  }
+
+  .print-contact-strip b {
+    margin-right: 1mm;
+    color: rgba(255,255,255,0.58);
+    font-size: 6.5pt;
+    letter-spacing: 0.04em;
+  }
+
+  .print-client-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 10mm;
+    margin-top: 6mm;
+    padding-bottom: 5mm;
+    border-bottom: 0.25mm solid #cbd5d1;
+    font-size: 8pt;
+    line-height: 1.45;
+  }
+
+  .print-label {
+    margin-bottom: 1mm;
+    color: #1f4c49;
+    font-size: 6.7pt;
+    font-weight: 800;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+  }
+
+  .print-client-name {
+    display: block;
+    color: #142635;
+    font-size: 10pt;
+  }
+
+  .print-details {
+    display: grid;
+    grid-template-columns: 28mm 1fr;
+    gap: 0.8mm 2mm;
+    margin: 0;
+  }
+
+  .print-details dt {
+    color: #6b7780;
+    font-weight: 600;
+  }
+
+  .print-details dd {
+    margin: 0;
+    color: #142635;
+    font-weight: 700;
+  }
+
+  .print-scope {
+    margin-top: 5mm;
+    font-size: 7.8pt;
+    line-height: 1.42;
+  }
+
+  .print-scope-intro {
+    margin-bottom: 1.5mm;
+  }
+
+  .print-scope-bullet {
+    margin-left: 2mm;
+  }
+
+  .print-items-table {
+    width: 100%;
+    margin-top: 5mm;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 7.6pt;
+  }
+
+  .print-items-table th {
+    padding: 2.2mm 2mm;
+    background: #142635;
+    color: #ffffff;
+    font-size: 6.7pt;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .print-items-table th:nth-child(1) { width: 58%; }
+  .print-items-table th:nth-child(2) { width: 9%; text-align: center; }
+  .print-items-table th:nth-child(3) { width: 16%; text-align: right; }
+  .print-items-table th:nth-child(4) { width: 17%; text-align: right; }
+
+  .print-items-table td {
+    padding: 2.2mm 2mm;
+    border-bottom: 0.2mm solid #dbe3df;
+    color: #263640;
+    vertical-align: top;
+  }
+
+  .print-items-table td:first-child {
+    font-weight: 700;
+  }
+
+  .print-items-table td:not(:first-child) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .print-items-table td:nth-child(2) {
+    text-align: center;
+  }
+
+  .print-totals {
+    width: 86mm;
+    margin: 4mm 0 0 auto;
+    color: #6b7780;
+    font-size: 8pt;
+  }
+
+  .print-totals > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 5mm;
+    padding: 0.9mm 0;
+  }
+
+  .print-totals strong {
+    color: #142635;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .print-total-row {
+    border-top: 0.25mm solid #b8c5c0;
+    color: #142635 !important;
+    font-weight: 800;
+  }
+
+  .print-deposit-row {
+    color: #142635 !important;
+    font-weight: 900;
+  }
+
+  .print-bank-panel {
+    box-sizing: border-box;
+    margin-top: 5mm;
+    padding: 3.4mm 4mm;
+    border: 0.25mm solid #d7e0dc;
+    border-radius: 1.5mm;
+    background: #f1f5f3;
+  }
+
+  .print-bank-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5mm 10mm;
+    font-size: 7.6pt;
+  }
+
+  .print-bank-grid div {
+    display: grid;
+    grid-template-columns: 18mm 1fr;
+    gap: 2mm;
+  }
+
+  .print-bank-grid b {
+    color: #6b7780;
+    font-size: 6.3pt;
+    letter-spacing: 0.04em;
+  }
+
+  .print-bank-grid span {
+    color: #142635;
+    font-weight: 700;
+  }
+
+  .print-reference {
+    color: #9b6b2f !important;
+  }
+
+  .print-outstanding {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+    margin-top: 3mm;
+    padding: 2.4mm 3.5mm;
+    border-radius: 1.3mm;
+    background: #e6efeb;
+    color: #142635;
+    font-size: 7.8pt;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+  }
+
+  .print-outstanding strong {
+    font-size: 13pt;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .print-terms-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+    height: 15mm;
+    padding: 0 5mm;
+    border-radius: 1.5mm;
+    background: #142635;
+    color: #ffffff;
+  }
+
+  .print-terms-header strong {
+    font-size: 12pt;
+  }
+
+  .print-terms-header span {
+    color: #d69246;
+    font-size: 7pt;
+    font-weight: 800;
+  }
+
+  .print-terms-intro {
+    margin: 5mm 0 3mm;
+    color: #6b7780;
+    font-size: 7.8pt;
+  }
+
+  .print-terms-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6mm 9mm;
+    color: #5c6870;
+    font-size: 7.8pt;
+    line-height: 1.48;
+  }
+
+  .print-terms-grid b {
+    color: #142635;
+  }
+
+  .print-footer {
+    margin-top: 7mm;
+    padding-top: 3mm;
+    border-top: 0.25mm solid #cbd5d1;
+    color: #6b7780;
+    font-size: 7.8pt;
+    line-height: 1.45;
+  }
+
+  .print-footer b {
+    color: #142635;
+  }
+}
+
+
+@media print {
+  /* One explicit break between the two sheets only; never break before page two as well. */
+  .invoice-print-only .print-sheet-page-one {
+    break-after: page !important;
+    page-break-after: always !important;
+  }
+
+  .invoice-print-only .print-sheet-page-two {
+    break-before: auto !important;
+    page-break-before: auto !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+}
+
+
+@media print {
+  .invoice-print-only .print-sheet {
+    height: 296mm !important;
+  }
+}
+
+
+@media print {
+  .invoice-print-only .print-sheet {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
+  .invoice-print-only .print-sheet-page-one {
+    break-before: auto !important;
+    page-break-before: auto !important;
+  }
+
+  .invoice-print-only .print-sheet-page-two {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+}

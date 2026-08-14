@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Printer, Plus, Trash2, Copy, BadgeCheck, Undo2 } from "lucide-react";
 import { AMES_PRICING_CATALOG } from "../data/pricingCatalog";
 import AMESLogo from "./common/AMESLogo";
+import InvoicePrintDocument from "./InvoicePrintDocument";
 import { toast } from "./common/Toasts";
 import { fullLineItemsOf, invoiceTypeOf, itemTotal, lineItemsOf } from "../lib/invoiceCalculations";
 
@@ -429,7 +430,7 @@ export default function InvoiceGenerator({
               </div>
             </div>
             <div
-            className="print-doc"
+            className="print-doc invoice-editor"
             style={{
               background: "#ffffff",
               borderRadius: "var(--radius-md)",
@@ -792,6 +793,20 @@ export default function InvoiceGenerator({
               </div>
             </div>
             </div>
+            <InvoicePrintDocument
+              invoice={selectedInvoice}
+              meta={metaDraft}
+              isDeposit={isDepositInvoice}
+              title={documentTitle}
+              lineItems={displayedLineItems}
+              fullSubtotalExGst={fullSubtotalExGst}
+              fullGstAmount={fullGstAmount}
+              fullTotalInclGst={fullTotalInclGst}
+              depositTotalInclGst={depositTotalInclGst}
+              amountDueInclGst={amountDueInclGst}
+              balanceInclGst={balanceInclGst}
+              terms={termsText}
+            />
           </div>
         ) : (
           <div className="card" style={{ padding: 60, textAlign: "center", color: "var(--ink-muted)" }}>
