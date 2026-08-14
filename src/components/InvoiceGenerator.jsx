@@ -3,8 +3,7 @@ import { Printer, Plus, Trash2, Copy, BadgeCheck, Undo2 } from "lucide-react";
 import { AMES_PRICING_CATALOG } from "../data/pricingCatalog";
 import AMESLogo from "./common/AMESLogo";
 import { toast } from "./common/Toasts";
-
-const lineItemsOf = (inv) => (Array.isArray(inv && inv.lineItems) ? inv.lineItems : []);
+import { fullLineItemsOf, invoiceTypeOf, itemTotal, lineItemsOf } from "../lib/invoiceCalculations";
 
 const fmtMoney = (n) => (isFinite(n) ? n.toFixed(2) : "0.00");
 
@@ -89,7 +88,7 @@ export default function InvoiceGenerator({
     if (isCreating) return;
     setSelectedInvoice((current) => {
       const newest = invoices[0] || null;
-      if (newest && newest.invoiceType === "deposit" && newest.id !== current?.id) return newest;
+      if (newest && invoiceTypeOf(newest) === "deposit" && newest.id !== current?.id) return newest;
       return (current && invoices.find((inv) => inv.id === current.id)) || newest;
     });
   }, [invoices, isCreating]);
@@ -119,6 +118,11 @@ export default function InvoiceGenerator({
       issueDate: new Date().toISOString().split("T")[0],
       dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
       status: "Unpaid",
+      invoiceType: "tax",
+      depositPercent: null,
+      fullLineItems: [
+        { description: "Site Audit / Gap Assessment Fee (Phase 1)", priceExGst: 595.0, qty: 1 },
+      ],
       lineItems: [
         { description: "Site Audit / Gap Assessment Fee (Phase 1)", priceExGst: 595.0, qty: 1 },
       ],
@@ -147,14 +151,43 @@ export default function InvoiceGenerator({
     setSelectedInvoice((prev) => ({ ...prev, lineItems: lineItemsOf(prev).filter((_, i) => i !== idx) }));
   };
 
+  const handleInvoiceTypeChange = (nextType) => {
+    if (!selectedInvoice) return;
+    const fullItems = fullLineItemsOf(selectedInvoice);
+    const isDeposit = nextType === "deposit";
+    const fullSubtotal = itemTotal(fullItems);
+    const depositAmount = fullSubtotal * 0.5;
+    const reference = selectedInvoice.proposalReference || selectedInvoice.jobRef || "approved engagement";
+    const depositItems = [{
+      description: `50% Deposit — ${reference} (${selectedInvoice.businessName || "Compliance Program"})`,
+      priceExGst: depositAmount,
+      qty: 1,
+    }];
+
+    setInv({
+      invoiceType: nextType,
+      depositPercent: isDeposit ? 50 : null,
+      depositExGst: isDeposit ? depositAmount : null,
+      fullLineItems: fullItems,
+      lineItems: isDeposit ? depositItems : fullItems,
+    });
+  };
+
   const handleSaveInvoice = () => {
     if (!selectedInvoice) return;
+    const invoiceType = invoiceTypeOf(selectedInvoice);
+    const fullItems = fullLineItemsOf(selectedInvoice);
+    const currentSubtotal = itemTotal(lineItemsOf(selectedInvoice));
     const metaChanged = ["businessName", "abn", "tagline", "website", "phone", "email", "signature", "bankName", "bankBsb", "bankAcct", "bankAcctName", "stripeLink", "stripeFeePct"].some(
       (k) => metaDraft[k] !== (settings && settings[k])
     );
     if (metaChanged && onUpdateSettings) onUpdateSettings(metaDraft);
     const clean = {
       ...selectedInvoice,
+      invoiceType,
+      depositPercent: invoiceType === "deposit" ? 50 : null,
+      depositExGst: invoiceType === "deposit" ? currentSubtotal : null,
+      fullLineItems: fullItems,
       lineItems: lineItemsOf(selectedInvoice),
       terms: selectedInvoice.terms || metaDraft.invoiceTerms || TERMS_FALLBACK,
       issueDate: selectedInvoice.issueDate || new Date().toISOString().split("T")[0],
@@ -214,19 +247,15 @@ export default function InvoiceGenerator({
     );
   };
 
-  const subtotalExGst = selectedInvoice
-    ? lineItemsOf(selectedInvoice).reduce((acc, it) => acc + (Number(it.priceExGst) || 0) * (Number(it.qty) || 1), 0)
-    : 0;
+  const subtotalExGst = selectedInvoice ? itemTotal(lineItemsOf(selectedInvoice)) : 0;
   const gstAmount = subtotalExGst * 0.1;
   const totalInclGst = subtotalExGst + gstAmount;
+  const fullSubtotalExGst = selectedInvoice ? itemTotal(fullLineItemsOf(selectedInvoice)) : 0;
+  const fullTotalInclGst = fullSubtotalExGst * 1.1;
+  const balanceInclGst = Math.max(0, fullTotalInclGst - totalInclGst);
   const stripeFee = totalInclGst * (Number(metaDraft.stripeFeePct) || 0) / 100;
   const stripeCharged = totalInclGst + stripeFee;
-  const isDepositInvoice = Boolean(
-    selectedInvoice &&
-      (selectedInvoice.invoiceType === "deposit" ||
-        selectedInvoice.depositPercent === 50 ||
-        lineItemsOf(selectedInvoice).some((item) => /50%\s*deposit/i.test(item.description || "")))
-  );
+  const isDepositInvoice = invoiceTypeOf(selectedInvoice) === "deposit";
   const documentTitle = isDepositInvoice ? "50% DEPOSIT INVOICE" : "TAX INVOICE";
 
   return (
@@ -235,7 +264,7 @@ export default function InvoiceGenerator({
       <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28, gap: 12, flexWrap: "wrap" }}>
         <div>
           <h1 className="brand-font" style={{ fontSize: 28, fontWeight: 700, color: "var(--navy)" }}>
-            Tax Invoice Generator
+            Invoice Generator
           </h1>
           <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginTop: 3 }}>
             Official AMES Food Advisory invoicing — sequential from AFA-100010, ex GST + 10% GST.
@@ -297,7 +326,7 @@ export default function InvoiceGenerator({
                   <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--navy)" }}>
                     {inv.invoiceNumber}
                   </span>
-                  {Boolean(inv.invoiceType === "deposit" || inv.depositPercent === 50 || lineItemsOf(inv).some((item) => /50%\s*deposit/i.test(item.description || ""))) && (
+                  {invoiceTypeOf(inv) === "deposit" && (
                     <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#e8f3ec", color: "#17643a", letterSpacing: "0.04em" }}>
                       DEPOSIT 50%
                     </span>
@@ -319,16 +348,51 @@ export default function InvoiceGenerator({
                   {inv.businessName}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 2 }}>
-                  {inv.invoiceType === "deposit" || inv.depositPercent === 50 ? "Deposit total" : "Total"}: <strong>${fmtMoney(tot)} incl GST</strong>
+                  {invoiceTypeOf(inv) === "deposit" ? "Deposit total" : "Total"}: <strong>${fmtMoney(tot)} incl GST</strong>
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Right Column: Branded Tax Invoice Document */}
+        {/* Right Column: Branded Invoice Document */}
         {selectedInvoice ? (
-          <div
+          <div>
+            <div className="no-print" style={{ marginBottom: 14, padding: "14px 16px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", background: "#ffffff", boxShadow: "var(--shadow-sm)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Invoice type</div>
+                  <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 3 }}>Choose what this draft should show when printed or saved.</div>
+                </div>
+                <div role="group" aria-label="Invoice type" style={{ display: "inline-flex", padding: 4, borderRadius: 10, background: "#eef2f4", gap: 4 }}>
+                  {[{ value: "tax", label: "Tax Invoice" }, { value: "deposit", label: "50% Deposit Invoice" }].map((option) => {
+                    const active = invoiceTypeOf(selectedInvoice) === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => handleInvoiceTypeChange(option.value)}
+                        style={{
+                          border: active ? "1px solid var(--navy)" : "1px solid transparent",
+                          borderRadius: 7,
+                          background: active ? "var(--navy)" : "transparent",
+                          color: active ? "#ffffff" : "var(--navy)",
+                          padding: "8px 12px",
+                          fontSize: 12,
+                          fontWeight: 800,
+                          cursor: "pointer",
+                          transition: "all 160ms ease-out",
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div
             className="print-doc"
             style={{
               background: "#ffffff",
@@ -453,10 +517,11 @@ export default function InvoiceGenerator({
                       style={{ fontSize: 13, fontWeight: 800, color: "var(--navy)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none" }}
                     />
 
+                    <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Invoice Type:</span>
+                    <strong style={{ color: isDepositInvoice ? "#17643a" : "var(--navy)" }}>{isDepositInvoice ? "50% Deposit Invoice" : "Tax Invoice"}</strong>
+
                     {isDepositInvoice && (
                       <>
-                        <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Invoice Type:</span>
-                        <strong style={{ color: "#17643a" }}>50% Deposit Invoice</strong>
                         <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Job No:</span>
                         <strong className="mono" style={{ color: "var(--navy)" }}>{selectedInvoice.jobNumber || selectedInvoice.jobRef || "—"}</strong>
                       </>
@@ -597,7 +662,7 @@ export default function InvoiceGenerator({
                     </div>
                   )}
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--border-light)", fontSize: 13.5, color: "var(--ink-soft)" }}>
-                    <span>Subtotal (Ex GST)</span>
+                    <span>{isDepositInvoice ? "50% deposit subtotal (Ex GST)" : "Subtotal (Ex GST)"}</span>
                     <span style={{ fontWeight: 700, color: "var(--navy)" }}>${fmtMoney(subtotalExGst)}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--border-light)", fontSize: 13.5, color: "var(--ink-soft)" }}>
@@ -609,9 +674,15 @@ export default function InvoiceGenerator({
                     <span style={{ fontSize: 22, fontWeight: 900, color: "var(--amber)", fontFamily: "var(--font-mono)" }}>${fmtMoney(totalInclGst)}</span>
                   </div>
                   {isDepositInvoice && (
-                    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: "#e8f3ec", color: "#17643a", fontSize: 12, fontWeight: 700 }}>
-                      This invoice is the 50% deposit for {selectedInvoice.businessName || "the approved engagement"}. The balance remains payable under the agreed engagement terms.
-                    </div>
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--border-light)", fontSize: 13.5, color: "var(--ink-soft)" }}>
+                        <span>Balance remaining (incl GST)</span>
+                        <span style={{ fontWeight: 800, color: "var(--navy)" }}>${fmtMoney(balanceInclGst)}</span>
+                      </div>
+                      <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: "#e8f3ec", color: "#17643a", fontSize: 12, fontWeight: 700 }}>
+                        This invoice is the 50% deposit for {selectedInvoice.businessName || "the approved engagement"}. The remaining balance of ${fmtMoney(balanceInclGst)} incl GST is payable under the agreed engagement terms.
+                      </div>
+                    </>
                   )}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", marginTop: 8, background: "#635bff", color: "#ffffff", borderRadius: 8 }}>
                     <span style={{ fontSize: 13, fontWeight: 800 }}>If paying by card (incl. {metaDraft.stripeFeePct}% Stripe fee)</span>
@@ -659,7 +730,7 @@ export default function InvoiceGenerator({
                       </div>
                       <div style={{ marginTop: 6, padding: "10px 12px", background: "#f6f7f9", borderRadius: 8, fontSize: 12.5, lineHeight: 1.8 }}>
                         <div style={{ display: "flex", justifyContent: "space-between" }}>
-                          <span style={{ color: "var(--ink-soft)" }}>Invoice total</span>
+                          <span style={{ color: "var(--ink-soft)" }}>{isDepositInvoice ? "Deposit invoice total" : "Invoice total"}</span>
                           <span style={{ fontWeight: 700, color: "var(--navy)" }}>${fmtMoney(totalInclGst)}</span>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -720,6 +791,7 @@ export default function InvoiceGenerator({
                   <Trash2 size={15} /> Delete
                 </button>
               </div>
+            </div>
             </div>
           </div>
         ) : (

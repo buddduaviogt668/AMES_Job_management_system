@@ -44,6 +44,12 @@ const INITIAL_INVOICES = [
     issueDate: "2026-08-08",
     dueDate: "2026-08-22",
     status: "Unpaid",
+    invoiceType: "tax",
+    depositPercent: null,
+    fullLineItems: [
+      { description: "Site Audit / Gap Assessment Fee (Phase 1)", priceExGst: 595.0, qty: 1 },
+      { description: "HACCP Food Safety Program Documentation Build (Phase 2)", priceExGst: 1500.0, qty: 1 },
+    ],
     lineItems: [
       { description: "Site Audit / Gap Assessment Fee (Phase 1)", priceExGst: 595.0, qty: 1 },
       { description: "HACCP Food Safety Program Documentation Build (Phase 2)", priceExGst: 1500.0, qty: 1 },
@@ -332,6 +338,13 @@ export default function App() {
         invoiceType: "deposit",
         depositPercent: 50,
         depositExGst,
+        fullLineItems: [
+          {
+            description: `${proposal.proposalNumber} Compliance Program — approved engagement total`,
+            priceExGst: subtotalExGst,
+            qty: 1,
+          },
+        ],
         clientName: proposal.clientName || "Client",
         businessName: proposal.businessName || "Food Business",
         email: proposal.email || "",
