@@ -350,7 +350,7 @@ export default function InvoiceGenerator({
                   </div>
                   {isDepositInvoice && (
                     <div style={{ marginTop: 5, fontSize: 11, fontWeight: 800, color: "#ffffff", letterSpacing: "0.08em" }}>
-                      MANNING SUPPORT SERVICES · 50% DEPOSIT
+                      {(selectedInvoice.businessName || "APPROVED ENGAGEMENT").toUpperCase()} · 50% DEPOSIT
                     </div>
                   )}
                   <input
