@@ -331,3 +331,30 @@ textarea:focus {
     display: none;
   }
 }
+
+
+/* MSS reference invoice layout */
+.invoice-terms-page {
+  break-before: page;
+  page-break-before: always;
+}
+
+@media (max-width: 900px) {
+  .invoice-terms-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media print {
+  .invoice-terms-page {
+    break-before: page !important;
+    page-break-before: always !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    border-top: none !important;
+  }
+
+  .invoice-terms-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}

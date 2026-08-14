@@ -317,6 +317,13 @@ export default function App() {
         .reduce((sum, pNum) => sum + (Number(prices[pNum]) || 0), 0);
 
       const depositExGst = subtotalExGst * 0.5;
+      const fullLineItems = [1, 2, 3, 4]
+        .filter((phaseNum) => included[phaseNum])
+        .map((phaseNum) => ({
+          description: (proposal.snapshot && proposal.snapshot.phaseTitles && proposal.snapshot.phaseTitles[phaseNum]) || ({ 1: "Site Audit / Gap Assessment Fee (Phase 1)", 2: "Compliance package", 3: "NSW Food Authority audit preparation", 4: "Allergen review" }[phaseNum]),
+          priceExGst: Number(prices[phaseNum]) || 0,
+          qty: 1,
+        }));
 
       const maxInvoiceNum = [...invoices, ...proposals].reduce((acc, item) => {
         const raw = item && (item.invoiceNumber || item.proposalNumber);
@@ -338,13 +345,7 @@ export default function App() {
         invoiceType: "deposit",
         depositPercent: 50,
         depositExGst,
-        fullLineItems: [
-          {
-            description: `${proposal.proposalNumber} Compliance Program — approved engagement total`,
-            priceExGst: subtotalExGst,
-            qty: 1,
-          },
-        ],
+        fullLineItems,
         clientName: proposal.clientName || "Client",
         businessName: proposal.businessName || "Food Business",
         email: proposal.email || "",

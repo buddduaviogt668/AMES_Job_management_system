@@ -134,26 +134,54 @@ export default function InvoiceGenerator({
   };
 
   const handleAddLineFromCatalog = (catalogItem) => {
-    setSelectedInvoice((prev) => ({
-      ...prev,
-      lineItems: [...lineItemsOf(prev), { description: catalogItem.name, priceExGst: catalogItem.priceExGst, qty: 1 }],
-    }));
+    setSelectedInvoice((prev) => {
+      const deposit = invoiceTypeOf(prev) === "deposit";
+      const fullItems = [...fullLineItemsOf(prev, proposals), { description: catalogItem.name, priceExGst: catalogItem.priceExGst, qty: 1 }];
+      const depositExGst = itemTotal(fullItems) * 0.5;
+      return {
+        ...prev,
+        fullLineItems: fullItems,
+        lineItems: deposit ? [{ description: `50% Deposit — ${prev.proposalReference || prev.jobRef || "approved engagement"} (${prev.businessName || "Compliance Program"})`, priceExGst: depositExGst, qty: 1 }] : fullItems,
+        depositExGst: deposit ? depositExGst : null,
+      };
+    });
   };
 
   const handleUpdateLine = (idx, patch) => {
     setSelectedInvoice((prev) => {
-      const items = lineItemsOf(prev).map((it, i) => (i === idx ? { ...it, ...patch } : it));
-      return { ...prev, lineItems: items };
+      const deposit = invoiceTypeOf(prev) === "deposit";
+      const sourceItems = deposit ? fullLineItemsOf(prev, proposals) : lineItemsOf(prev);
+      const items = sourceItems.map((it, i) => (i === idx ? { ...it, ...patch } : it));
+      if (!deposit) return { ...prev, lineItems: items, fullLineItems: items };
+      const depositExGst = itemTotal(items) * 0.5;
+      return {
+        ...prev,
+        fullLineItems: items,
+        depositExGst,
+        lineItems: [{ description: `50% Deposit — ${prev.proposalReference || prev.jobRef || "approved engagement"} (${prev.businessName || "Compliance Program"})`, priceExGst: depositExGst, qty: 1 }],
+      };
     });
   };
 
   const handleRemoveLineItem = (idx) => {
-    setSelectedInvoice((prev) => ({ ...prev, lineItems: lineItemsOf(prev).filter((_, i) => i !== idx) }));
+    setSelectedInvoice((prev) => {
+      const deposit = invoiceTypeOf(prev) === "deposit";
+      const sourceItems = deposit ? fullLineItemsOf(prev, proposals) : lineItemsOf(prev);
+      const items = sourceItems.filter((_, i) => i !== idx);
+      if (!deposit) return { ...prev, lineItems: items, fullLineItems: items };
+      const depositExGst = itemTotal(items) * 0.5;
+      return {
+        ...prev,
+        fullLineItems: items,
+        depositExGst,
+        lineItems: [{ description: `50% Deposit — ${prev.proposalReference || prev.jobRef || "approved engagement"} (${prev.businessName || "Compliance Program"})`, priceExGst: depositExGst, qty: 1 }],
+      };
+    });
   };
 
   const handleInvoiceTypeChange = (nextType) => {
     if (!selectedInvoice) return;
-    const fullItems = fullLineItemsOf(selectedInvoice);
+    const fullItems = fullLineItemsOf(selectedInvoice, proposals);
     const isDeposit = nextType === "deposit";
     const fullSubtotal = itemTotal(fullItems);
     const depositAmount = fullSubtotal * 0.5;
@@ -176,7 +204,7 @@ export default function InvoiceGenerator({
   const handleSaveInvoice = () => {
     if (!selectedInvoice) return;
     const invoiceType = invoiceTypeOf(selectedInvoice);
-    const fullItems = fullLineItemsOf(selectedInvoice);
+    const fullItems = fullLineItemsOf(selectedInvoice, proposals);
     const currentSubtotal = itemTotal(lineItemsOf(selectedInvoice));
     const metaChanged = ["businessName", "abn", "tagline", "website", "phone", "email", "signature", "bankName", "bankBsb", "bankAcct", "bankAcctName", "stripeLink", "stripeFeePct"].some(
       (k) => metaDraft[k] !== (settings && settings[k])
@@ -247,16 +275,24 @@ export default function InvoiceGenerator({
     );
   };
 
+  const isDepositInvoice = invoiceTypeOf(selectedInvoice) === "deposit";
   const subtotalExGst = selectedInvoice ? itemTotal(lineItemsOf(selectedInvoice)) : 0;
   const gstAmount = subtotalExGst * 0.1;
   const totalInclGst = subtotalExGst + gstAmount;
-  const fullSubtotalExGst = selectedInvoice ? itemTotal(fullLineItemsOf(selectedInvoice)) : 0;
-  const fullTotalInclGst = fullSubtotalExGst * 1.1;
-  const balanceInclGst = Math.max(0, fullTotalInclGst - totalInclGst);
-  const stripeFee = totalInclGst * (Number(metaDraft.stripeFeePct) || 0) / 100;
-  const stripeCharged = totalInclGst + stripeFee;
-  const isDepositInvoice = invoiceTypeOf(selectedInvoice) === "deposit";
-  const documentTitle = isDepositInvoice ? "50% DEPOSIT INVOICE" : "TAX INVOICE";
+  const fullSubtotalExGst = selectedInvoice ? itemTotal(fullLineItemsOf(selectedInvoice, proposals)) : 0;
+  const fullGstAmount = fullSubtotalExGst * 0.1;
+  const fullTotalInclGst = fullSubtotalExGst + fullGstAmount;
+  const depositTotalInclGst = fullTotalInclGst * 0.5;
+  const amountDueInclGst = isDepositInvoice ? depositTotalInclGst : totalInclGst;
+  const balanceInclGst = Math.max(0, fullTotalInclGst - amountDueInclGst);
+  const stripeFee = amountDueInclGst * (Number(metaDraft.stripeFeePct) || 0) / 100;
+  const stripeCharged = amountDueInclGst + stripeFee;
+  const documentTitle = isDepositInvoice ? "DEPOSIT TAX INVOICE" : "TAX INVOICE";
+  const displayPaymentTerms = isDepositInvoice ? "50% deposit due now" : (selectedInvoice?.paymentTermsLabel || "14 days");
+  const displayedLineItems = isDepositInvoice ? fullLineItemsOf(selectedInvoice, proposals) : lineItemsOf(selectedInvoice);
+  const termsText = selectedInvoice?.terms || metaDraft.invoiceTerms || TERMS_FALLBACK;
+  const termBlocks = termsText.split(/\n+/).map((term) => term.trim()).filter(Boolean);
+  const defaultScopeText = "This engagement will bring the client’s food safety documentation up to date ahead of NSW Food Authority or Council review and establish a robust compliance foundation for the planned operation. The key activities are:\n• Update and strengthen the HACCP plan to reflect current products, processes and hazards.\n• Bring product labelling into compliance, including ingredient, allergen and storage information.\n• Complete the agreed food safety program and readiness review.";
 
   return (
     <div className="invoice-page" style={{ padding: "32px 36px", maxWidth: 1200, margin: "0 auto" }}>
@@ -403,35 +439,30 @@ export default function InvoiceGenerator({
             }}
           >
             {/* Document Header Banner — Sydney Automation Co exact style adapted to AMES */}
-            <div style={{ background: "var(--navy-deep)", color: "#ffffff", padding: "20px 36px 16px" }}>
+            <div style={{ background: "var(--navy-deep)", color: "#ffffff", padding: "16px 30px 12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  <AMESLogo variant="light" size="lg" />
+                  <AMESLogo variant="light" size="md" />
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 26, fontWeight: 900, color: "var(--amber)", letterSpacing: "0.06em", fontFamily: "Georgia, serif" }}>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: "var(--amber)", letterSpacing: "0.06em", fontFamily: "Georgia, serif" }}>
                     {documentTitle}
                   </div>
-                  {isDepositInvoice && (
-                    <div style={{ marginTop: 5, fontSize: 11, fontWeight: 800, color: "#ffffff", letterSpacing: "0.08em" }}>
-                      {(selectedInvoice.businessName || "APPROVED ENGAGEMENT").toUpperCase()} · 50% DEPOSIT
-                    </div>
-                  )}
                   <input
                     value={selectedInvoice.invoiceNumber || ""}
                     onChange={(e) => setInv({ invoiceNumber: e.target.value })}
                     title="Invoice number — editable"
                     placeholder="AFA-100010"
                     style={{
-                      fontSize: 18, fontWeight: 800, color: "#ffffff", marginTop: 2, textAlign: "right",
+                      fontSize: 12, fontWeight: 800, color: "#ffffff", marginTop: 2, textAlign: "right",
                       background: "transparent", border: "none", borderBottom: "1px dashed rgba(255,255,255,0.4)", outline: "none",
-                      fontFamily: "var(--font-mono)", width: 180,
+                      fontFamily: "var(--font-mono)", width: 150,
                     }}
                   />
                 </div>
               </div>
 
-              {/* Sub-header info bar — single horizontal line, no stacking */}
+              {/* Sub-header info bar — compact reference contact strip */}
               <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.85)", fontSize: 11.5 }}>
                 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px 0" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
@@ -447,14 +478,6 @@ export default function InvoiceGenerator({
                   </span>
                   <span style={{ height: 12, width: 1, background: "rgba(255,255,255,0.3)", margin: "0 16px" }} />
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>{metaInput(metaDraft.website, setMeta("website"), { minWidth: 150, light: true })}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, flexWrap: "wrap", gap: "8px 16px" }}>
-                  <span>
-                    Issued: <input type="date" value={selectedInvoice.issueDate || ""} onChange={(e) => setInv({ issueDate: e.target.value })} style={{ background: "transparent", border: "none", color: "#ffffff", fontWeight: 700, fontSize: 11.5 }} />
-                  </span>
-                  <span>
-                    Due: <input type="date" value={selectedInvoice.dueDate || ""} onChange={(e) => setInv({ dueDate: e.target.value })} style={{ background: "transparent", border: "none", color: "var(--amber)", fontWeight: 700, fontSize: 11.5 }} />
-                  </span>
                 </div>
               </div>
             </div>
@@ -527,7 +550,7 @@ export default function InvoiceGenerator({
                       </>
                     )}
 
-                    <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Site Date:</span>
+                    <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Issue Date:</span>
                     <input
                       type="date"
                       value={selectedInvoice.issueDate || ""}
@@ -535,30 +558,34 @@ export default function InvoiceGenerator({
                       style={{ fontSize: 12.5, border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none" }}
                     />
 
-                    <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Terms:</span>
-                    <select
-                      value={selectedInvoice.paymentTermsLabel || "due on invoice"}
-                      onChange={(e) => {
-                        const label = e.target.value;
-                        const days = label === "due on invoice" ? 0 : parseInt(label, 10);
-                        let due = selectedInvoice.issueDate;
-                        if (due) {
-                          const d = new Date(due + "T00:00:00");
-                          d.setDate(d.getDate() + (isNaN(days) ? 0 : days));
-                          const y = d.getFullYear();
-                          const m = String(d.getMonth() + 1).padStart(2, "0");
-                          const dd = String(d.getDate()).padStart(2, "0");
-                          due = `${y}-${m}-${dd}`;
-                        }
-                        setInv({ paymentTermsLabel: label, dueDate: due });
-                      }}
-                      style={{ fontSize: 13, fontWeight: 700, color: "var(--navy)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none", padding: "2px 0" }}
-                    >
-                      <option value="due on invoice">Due on invoice</option>
-                      <option value="7 days">7 days</option>
-                      <option value="14 days">14 days</option>
-                      <option value="30 days">30 days</option>
-                    </select>
+                    <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Payment Terms:</span>
+                    {isDepositInvoice ? (
+                      <strong style={{ color: "#17643a" }}>{displayPaymentTerms}</strong>
+                    ) : (
+                      <select
+                        value={selectedInvoice.paymentTermsLabel || "due on invoice"}
+                        onChange={(e) => {
+                          const label = e.target.value;
+                          const days = label === "due on invoice" ? 0 : parseInt(label, 10);
+                          let due = selectedInvoice.issueDate;
+                          if (due) {
+                            const d = new Date(due + "T00:00:00");
+                            d.setDate(d.getDate() + (isNaN(days) ? 0 : days));
+                            const y = d.getFullYear();
+                            const m = String(d.getMonth() + 1).padStart(2, "0");
+                            const dd = String(d.getDate()).padStart(2, "0");
+                            due = `${y}-${m}-${dd}`;
+                          }
+                          setInv({ paymentTermsLabel: label, dueDate: due });
+                        }}
+                        style={{ fontSize: 13, fontWeight: 700, color: "var(--navy)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none", padding: "2px 0" }}
+                      >
+                        <option value="due on invoice">Due on invoice</option>
+                        <option value="7 days">7 days</option>
+                        <option value="14 days">14 days</option>
+                        <option value="30 days">30 days</option>
+                      </select>
+                    )}
                   </div>
                 </div>
               </div>
@@ -569,7 +596,7 @@ export default function InvoiceGenerator({
                   SCOPE OF WORK
                 </div>
                 <textarea
-                  value={selectedInvoice.scopeText || "- On-site kitchen fit-out gap assessment against NSW EHO inspection criteria\n- HACCP Food Safety Program & SOP documentation build\n- Regulatory approval pathway guidance and council lodgement check"}
+                  value={selectedInvoice.scopeText || defaultScopeText}
                   onChange={(e) => setInv({ scopeText: e.target.value })}
                   rows={4}
                   style={{
@@ -611,7 +638,7 @@ export default function InvoiceGenerator({
                   </tr>
                 </thead>
                 <tbody>
-                  {lineItemsOf(selectedInvoice).map((item, idx) => (
+                  {displayedLineItems.map((item, idx) => (
                     <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)" }}>
                       <td style={{ padding: "12px" }}>
                         <textarea
@@ -652,124 +679,96 @@ export default function InvoiceGenerator({
                 </tbody>
               </table>
 
-              {/* Totals Summary Panel — Sydney Automation Co exact style */}
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 36 }}>
-                <div style={{ width: 340 }}>
-                  {isDepositInvoice && (
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--border-light)", fontSize: 13.5, color: "#17643a" }}>
-                      <span style={{ fontWeight: 700 }}>Deposit percentage</span>
-                      <span style={{ fontWeight: 800 }}>50% of approved proposal</span>
-                    </div>
-                  )}
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--border-light)", fontSize: 13.5, color: "var(--ink-soft)" }}>
-                    <span>{isDepositInvoice ? "50% deposit subtotal (Ex GST)" : "Subtotal (Ex GST)"}</span>
-                    <span style={{ fontWeight: 700, color: "var(--navy)" }}>${fmtMoney(subtotalExGst)}</span>
+              {/* REFERENCE-MATCHED TOTALS */}
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6, marginBottom: 18 }}>
+                <div style={{ width: 380, fontSize: 12.5 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", color: "var(--ink-soft)" }}>
+                    <span>{isDepositInvoice ? "Full engagement subtotal (ex GST)" : "Subtotal (ex GST)"}</span>
+                    <span>${fmtMoney(fullSubtotalExGst)}</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--border-light)", fontSize: 13.5, color: "var(--ink-soft)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", color: "var(--ink-soft)" }}>
                     <span>GST (10%)</span>
-                    <span style={{ fontWeight: 700, color: "var(--navy)" }}>${fmtMoney(gstAmount)}</span>
+                    <span>${fmtMoney(fullGstAmount)}</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", background: "var(--navy)", borderRadius: 8, marginTop: 8, color: "#ffffff", alignItems: "center" }}>
-                    <span style={{ fontSize: 15, fontWeight: 900, letterSpacing: "0.05em" }}>{isDepositInvoice ? "DEPOSIT TOTAL DUE" : "TOTAL DUE"}</span>
-                    <span style={{ fontSize: 22, fontWeight: 900, color: "var(--amber)", fontFamily: "var(--font-mono)" }}>${fmtMoney(totalInclGst)}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderTop: "1px solid var(--border-color)", fontWeight: 800, color: "var(--navy)" }}>
+                    <span>{isDepositInvoice ? "Full project total (inc GST)" : "Total due (inc GST)"}</span>
+                    <span>${fmtMoney(fullTotalInclGst)}</span>
                   </div>
                   {isDepositInvoice && (
                     <>
-                      <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--border-light)", fontSize: 13.5, color: "var(--ink-soft)" }}>
-                        <span>Balance remaining (incl GST)</span>
-                        <span style={{ fontWeight: 800, color: "var(--navy)" }}>${fmtMoney(balanceInclGst)}</span>
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontWeight: 900, color: "var(--navy)" }}>
+                        <span>This deposit invoice — 50%</span>
+                        <span>${fmtMoney(depositTotalInclGst)}</span>
                       </div>
-                      <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: "#e8f3ec", color: "#17643a", fontSize: 12, fontWeight: 700 }}>
-                        This invoice is the 50% deposit for {selectedInvoice.businessName || "the approved engagement"}. The remaining balance of ${fmtMoney(balanceInclGst)} incl GST is payable under the agreed engagement terms.
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", color: "var(--ink-soft)" }}>
+                        <span>Balance on final documentation</span>
+                        <span>${fmtMoney(balanceInclGst)}</span>
                       </div>
                     </>
                   )}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", marginTop: 8, background: "#635bff", color: "#ffffff", borderRadius: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 800 }}>If paying by card (incl. {metaDraft.stripeFeePct}% Stripe fee)</span>
-                    <span style={{ fontSize: 17, fontWeight: 900, fontFamily: "var(--font-mono)" }}>${fmtMoney(stripeCharged)}</span>
+                </div>
+              </div>
+
+              {/* BANK TRANSFER + OUTSTANDING NOW */}
+              <div style={{ border: "1px solid var(--border-color)", borderRadius: 8, background: "#f4f7f5", padding: "12px 16px", marginTop: 12 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 900, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 7 }}>BANK TRANSFER</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 22px", fontSize: 11.5, color: "#334155" }}>
+                  <div><span style={{ color: "var(--ink-soft)" }}><strong>ACCOUNT:</strong> </span>{metaInput(metaDraft.bankAcctName, setMeta("bankAcctName"), { width: 180, bold: true, size: 11.5 })}</div>
+                  <div><span style={{ color: "var(--ink-soft)" }}><strong>BSB:</strong> </span>{metaInput(metaDraft.bankBsb, setMeta("bankBsb"), { width: 88, font: "var(--font-mono)", size: 11.5 })}</div>
+                  <div><span style={{ color: "var(--ink-soft)" }}><strong>ACCT NO:</strong> </span>{metaInput(metaDraft.bankAcct, setMeta("bankAcct"), { width: 100, font: "var(--font-mono)", size: 11.5 })}</div>
+                  <div><span style={{ color: "var(--ink-soft)" }}><strong>REFERENCE:</strong> </span><strong style={{ color: "var(--amber-dim)" }}>{selectedInvoice.invoiceNumber}</strong></div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#e8f0ed", borderRadius: 7, marginTop: 10, padding: "9px 14px", color: "var(--navy)", fontSize: 12, fontWeight: 900, letterSpacing: "0.04em" }}>
+                <span>{isDepositInvoice ? "OUTSTANDING OWED NOW" : "TOTAL OWED NOW"}</span>
+                <span style={{ fontSize: 19, fontFamily: "var(--font-mono)" }}>${fmtMoney(amountDueInclGst)}</span>
+              </div>
+
+              {/* CARD PAYMENT — interactive only; hidden in printed reference output */}
+              <div className="no-print" style={{ border: "1.5px solid #635bff", borderRadius: 10, padding: 16, background: "#ffffff", marginTop: 18 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: "#635bff", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Card Payment — Stripe</div>
+                <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.9 }}>
+                  <div><span style={{ color: "var(--ink-soft)" }}><strong>Payment link:</strong> </span>{metaInput(metaDraft.stripeLink, setMeta("stripeLink"), { width: 240, size: 12.5 })}</div>
+                  <div style={{ marginTop: 6, padding: "10px 12px", background: "#f6f7f9", borderRadius: 8, fontSize: 12.5, lineHeight: 1.8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--ink-soft)" }}>{isDepositInvoice ? "Deposit invoice total" : "Invoice total"}</span><span style={{ fontWeight: 700, color: "var(--navy)" }}>${fmtMoney(amountDueInclGst)}</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ color: "var(--ink-soft)" }}>Stripe fee ({metaInput(metaDraft.stripeFeePct, setMeta("stripeFeePct"), { width: 34, size: 12.5 })}%)</span><span style={{ fontWeight: 700, color: "var(--danger)" }}>+${fmtMoney(stripeFee)}</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border-color)", paddingTop: 6, marginTop: 6 }}><span style={{ color: "var(--ink)" }}><strong>Amount to pay by card</strong></span><span style={{ fontWeight: 900, fontSize: 16, color: "#635bff" }}>${fmtMoney(stripeCharged)}</span></div>
                   </div>
                 </div>
               </div>
 
-              {/* PAGE 2 / BOTTOM PAYMENT — Bank Transfer + Card (Stripe) */}
-              <div style={{ borderTop: "2px solid var(--navy)", paddingTop: 24, marginTop: 32 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 28 }}>
-                  {/* Bank Transfer */}
-                  <div style={{ border: "1.5px solid #0e1f3d", borderRadius: 10, padding: 16, background: "#ffffff" }}>
-                    <div style={{ fontSize: 11, fontWeight: 900, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                      <span>🏦</span> Bank Transfer
-                    </div>
-                    <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.9 }}>
-                      <div>
-                        <span style={{ color: "var(--ink-soft)" }}><strong>Account:</strong> </span>
-                        {metaInput(metaDraft.bankAcctName, setMeta("bankAcctName"), { width: 200, bold: true, size: 13 })}
-                      </div>
-                      <div>
-                        <span style={{ color: "var(--ink-soft)" }}><strong>BSB:</strong> </span>
-                        {metaInput(metaDraft.bankBsb, setMeta("bankBsb"), { width: 90, font: "var(--font-mono)", size: 13 })}
-                      </div>
-                      <div>
-                        <span style={{ color: "var(--ink-soft)" }}><strong>Acct No:</strong> </span>
-                        {metaInput(metaDraft.bankAcct, setMeta("bankAcct"), { width: 110, font: "var(--font-mono)", size: 13 })}
-                      </div>
-                      <div style={{ fontSize: 12, color: "var(--amber-dim)", fontWeight: 700, marginTop: 6 }}>
-                        Reference: {selectedInvoice.invoiceNumber}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Payment (Stripe) — auto-calculates total incl. fee */}
-                  <div style={{ border: "1.5px solid #635bff", borderRadius: 10, padding: 16, background: "#ffffff" }}>
-                    <div style={{ fontSize: 11, fontWeight: 900, color: "#635bff", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                      <span>💳</span> Card Payment — Stripe
-                    </div>
-                    <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.9 }}>
-                      <div>
-                        <span style={{ color: "var(--ink-soft)" }}><strong>Payment link:</strong> </span>
-                        {metaInput(metaDraft.stripeLink, setMeta("stripeLink"), { width: 240, size: 12.5 })}
-                      </div>
-                      <div style={{ marginTop: 6, padding: "10px 12px", background: "#f6f7f9", borderRadius: 8, fontSize: 12.5, lineHeight: 1.8 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                          <span style={{ color: "var(--ink-soft)" }}>{isDepositInvoice ? "Deposit invoice total" : "Invoice total"}</span>
-                          <span style={{ fontWeight: 700, color: "var(--navy)" }}>${fmtMoney(totalInclGst)}</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ color: "var(--ink-soft)" }}>
-                            Stripe fee ({metaInput(metaDraft.stripeFeePct, setMeta("stripeFeePct"), { width: 34, size: 12.5 })}%)
-                          </span>
-                          <span style={{ fontWeight: 700, color: "var(--danger)" }}>+${fmtMoney(stripeFee)}</span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border-color)", paddingTop: 6, marginTop: 6 }}>
-                          <span style={{ color: "var(--ink)" }}><strong>Amount to pay by card</strong></span>
-                          <span style={{ fontWeight: 900, fontSize: 16, color: "#635bff" }}>${fmtMoney(stripeCharged)}</span>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
-                        Pay instantly online by card. Stripe processing fee of {metaDraft.stripeFeePct}% is included in the amount charged.
-                      </div>
-                    </div>
-                  </div>
+              {/* REFERENCE-MATCHED TERMS PAGE */}
+              <div className="invoice-terms-page" style={{ marginTop: 36, paddingTop: 24, borderTop: "1px solid var(--border-color)" }}>
+                <div style={{ background: "var(--navy-deep)", color: "#ffffff", borderRadius: 6, padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+                  <span style={{ fontSize: 15, fontWeight: 900 }}>Terms &amp; Conditions</span>
+                  <span style={{ fontSize: 10.5, color: "var(--amber)", fontWeight: 800 }}>{documentTitle} {selectedInvoice.invoiceNumber}</span>
                 </div>
-
-                {/* TERMS & CONDITIONS Footer */}
-                <div style={{ background: "#faf9f5", padding: 14, borderRadius: 8, border: "1px solid var(--border-light)", marginBottom: 20 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-                    TERMS &amp; CONDITIONS
-                  </div>
-                  <textarea
-                    value={selectedInvoice.terms || metaDraft.invoiceTerms || TERMS_FALLBACK}
-                    onChange={(e) => setInv({ terms: e.target.value })}
-                    rows={4}
-                    style={{
-                      width: "100%", fontSize: 11.5, color: "var(--ink-soft)", lineHeight: 1.5,
-                      border: "none", background: "transparent", outline: "none", resize: "vertical", fontFamily: "inherit",
-                    }}
-                  />
+                <p style={{ margin: "16px 0 10px", color: "var(--ink-soft)", fontSize: 11.5 }}>These terms apply to the engagement described in this invoice.</p>
+                <div className="invoice-terms-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 28px", color: "var(--ink-soft)", fontSize: 11.5, lineHeight: 1.55 }}>
+                  {termBlocks.map((term, index) => {
+                    const match = term.match(/^(\d+\.?)\s*(.*?)(?:\s*[—-]\s+)(.*)$/);
+                    const number = match ? match[1] : `${index + 1}.`;
+                    const heading = match ? match[2].trim() : "";
+                    const body = match ? match[3].trim() : term;
+                    return (
+                      <div key={`${number}-${heading}`}>
+                        <strong style={{ color: "var(--navy)" }}>{number} {heading}</strong>{heading ? " " : ""}{body}
+                      </div>
+                    );
+                  })}
                 </div>
-
-                <div style={{ background: "var(--navy)", color: "#ffffff", padding: "12px 18px", borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, fontWeight: 700 }}>
-                  <span>THANK YOU FOR CHOOSING AMES FOOD ADVISORY.</span>
-                  <span style={{ opacity: 0.85 }}>{metaDraft.email} • {metaDraft.phone}</span>
+                <textarea
+                  className="no-print"
+                  aria-label="Invoice terms and conditions editor"
+                  value={termsText}
+                  onChange={(e) => setInv({ terms: e.target.value })}
+                  rows={4}
+                  style={{ width: "100%", marginTop: 18, fontSize: 11.5, color: "var(--ink-soft)", lineHeight: 1.5, border: "1px dashed var(--border-color)", background: "#faf9f5", outline: "none", resize: "vertical", fontFamily: "inherit", padding: 8 }}
+                />
+                <div style={{ borderTop: "1px solid var(--border-color)", marginTop: 20, paddingTop: 10, color: "var(--ink-soft)", fontSize: 11.5 }}>
+                  <strong style={{ color: "var(--navy)" }}>Thank you for choosing AMES Food Advisory.</strong><br />
+                  {metaDraft.website} · {metaDraft.email} · {metaDraft.phone}
                 </div>
               </div>
 

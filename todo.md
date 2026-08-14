@@ -24683,3 +24683,9 @@
 - [x] Add a visible Invoice Type toggle in Invoice Generator for Tax Invoice versus 50% Deposit Invoice.
 - [x] Make the selected invoice type update document headings, deposit totals, balance/footnotes, and print output.
 - [x] Verify the toggle with tests, production build, and visual checks before pushing.
+
+## Current request: match attached MSS Manning invoice reference
+
+- [x] Rework the invoice document structure to match the attached MSS Manning Support Services deposit tax invoice reference.
+- [x] Preserve AMES Food Advisory branding, website, business contact details, invoice numbering, and invoice-type toggle.
+- [x] Verify the reference-matched layout, deposit calculations, print output, and responsive presentation before pushing.
