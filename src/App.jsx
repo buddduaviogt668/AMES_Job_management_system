@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
 import ClientCRM from "./components/ClientCRM";
@@ -20,6 +20,7 @@ import AMESLogo from "./components/common/AMESLogo";
 import { LayoutDashboard, Target, CalendarDays, Receipt, Kanban, Menu } from "lucide-react";
 import useCloudSync from "./hooks/useCloudSync";
 import { downloadBackup, parseBackup } from "./lib/sync";
+import { migrateManningProposalNumber, normalizeProposalNumber } from "./lib/proposalNumbering";
 import {
   INITIAL_CLIENTS,
   INITIAL_JOBS,
@@ -162,6 +163,24 @@ export default function App() {
       return buildDefaultQuestionsData();
     }
   });
+  const proposalMigrationApplied = useRef(false);
+
+  useEffect(() => {
+    if (proposalMigrationApplied.current || !proposals.length) return;
+    const result = migrateManningProposalNumber({ proposals, jobs, invoices });
+    if (!result.proposal) return;
+    proposalMigrationApplied.current = true;
+    if (result.blocked) {
+      toast(`Manning proposal number could not be changed: ${result.reason}`, "error");
+      return;
+    }
+    if (result.changed) {
+      setProposals(result.proposals);
+      setJobs(result.jobs);
+      setInvoices(result.invoices);
+      toast("MSS Manning Support Services corrected to proposal AFA-P-100011", "success");
+    }
+  }, [proposals, jobs, invoices]);
 
   useEffect(() => {
     localStorage.setItem("ames_clients", JSON.stringify(clients));
@@ -224,22 +243,22 @@ export default function App() {
 
   // ---- Proposals ----
   const handleSaveProposal = (proposalData) => {
-    const nextNum =
-      proposals.reduce((acc, p) => {
-        const m = p.proposalNumber && String(p.proposalNumber).match(/^AFA-P-(\d+)$/);
-        return m ? Math.max(acc, parseInt(m[1], 10)) : acc;
-      }, invoices.reduce((acc, i) => {
-        const m = i.invoiceNumber && String(i.invoiceNumber).match(/^AFA-P-(\d+)$/);
-        return m ? Math.max(acc, parseInt(m[1], 10)) : acc;
-      }, 100009)) + 1;
+    const legacyNumber = normalizeProposalNumber(proposalData.legacyProposalNumber);
+    const proposalNumberTaken = legacyNumber && [...proposals, ...jobs, ...invoices].some((record) => [record.proposalNumber, record.jobNumber, record.jobRef, record.proposalReference].includes(legacyNumber));
+    if (legacyNumber && proposalNumberTaken) {
+      toast(`${legacyNumber} is already assigned. No proposal was created.`, "error");
+      return;
+    }
+    const { legacyProposalNumber: _legacyProposalNumber, ...proposalFields } = proposalData;
+    const assignedProposalNumber = legacyNumber || `AFA-P-${nextAFANumber()}`;
     const proposal = {
       id: "prop_" + Date.now(),
-      proposalNumber: `AFA-P-${nextNum}`,
-      clientId: proposalData.clientId || (proposalData.clientName && clients.find((c) => c.clientName === proposalData.clientName)?.id) || "cli_new",
+      clientId: proposalFields.clientId || (proposalFields.clientName && clients.find((c) => c.clientName === proposalFields.clientName)?.id) || "cli_new",
       status: "Draft",
       createdAt: new Date().toISOString().split("T")[0],
       snapshot: null,
-      ...proposalData,
+      ...proposalFields,
+      proposalNumber: assignedProposalNumber,
     };
     setProposals((prev) => [proposal, ...prev]);
     setClients((prev) =>
@@ -248,6 +267,7 @@ export default function App() {
       )
     );
     toast(`Proposal ${proposal.proposalNumber} generated for ${proposal.businessName}`, "success");
+    return proposal;
   };
 
   const handleUpdateProposal = (id, patch) => {
@@ -586,6 +606,7 @@ export default function App() {
             proposals={proposals}
             onUpdateProposal={handleUpdateProposal}
             onLaunchJob={handleLaunchJob}
+            onAddLegacyProposal={handleSaveProposal}
             setActiveTab={setActiveTab}
           />
         )}

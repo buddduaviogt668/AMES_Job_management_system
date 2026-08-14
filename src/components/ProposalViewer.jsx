@@ -52,8 +52,17 @@ const STATUS_TONE = {
   Lost: { bg: "var(--danger-bg)", color: "var(--danger)" },
 };
 
-export default function ProposalViewer({ proposals, onUpdateProposal, onLaunchJob, setActiveTab }) {
+export default function ProposalViewer({ proposals, onUpdateProposal, onLaunchJob, onAddLegacyProposal, setActiveTab }) {
   const [selectedId, setSelectedId] = useState(proposals[0]?.id || null);
+  const [showLegacyEntry, setShowLegacyEntry] = useState(false);
+  const [legacyDraft, setLegacyDraft] = useState({
+    legacyProposalNumber: "10",
+    businessName: "Chew Boy",
+    clientName: "",
+    email: "",
+    address: "",
+    status: "Sent",
+  });
   const [includedPhases, setIncludedPhases] = useState({ ...DEFAULTS.includedPhases });
   const [phasePricesExGst, setPhasePricesExGst] = useState({ ...DEFAULTS.phasePricesExGst });
   const [phaseTitles, setPhaseTitles] = useState({ ...DEFAULTS.phaseTitles });
@@ -169,6 +178,26 @@ export default function ProposalViewer({ proposals, onUpdateProposal, onLaunchJo
     setSavedTemplates(updated);
     localStorage.setItem("ames_package_templates", JSON.stringify(updated));
     if (activeTemplate === name) setActiveTemplate("");
+  };
+
+  const updateLegacyDraft = (key) => (event) => setLegacyDraft((draft) => ({ ...draft, [key]: event.target.value }));
+
+  const handleLegacySubmit = () => {
+    if (!legacyDraft.legacyProposalNumber.trim() || !legacyDraft.businessName.trim()) {
+      toast("Enter the historical proposal number and business name first", "error");
+      return;
+    }
+    const created = onAddLegacyProposal({
+      ...legacyDraft,
+      clientName: legacyDraft.clientName || "Historical client",
+      legacyProposalNumber: legacyDraft.legacyProposalNumber,
+      isLegacyProposal: true,
+    });
+    if (created) {
+      setSelectedId(created.id);
+      setShowLegacyEntry(false);
+      setLegacyDraft({ legacyProposalNumber: "", businessName: "", clientName: "", email: "", address: "", status: "Sent" });
+    }
   };
 
   const handleResetToDefaults = () => {
@@ -369,6 +398,17 @@ export default function ProposalViewer({ proposals, onUpdateProposal, onLaunchJo
         </div>
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {onAddLegacyProposal && (
+            <button
+              onClick={() => setShowLegacyEntry((open) => !open)}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: "var(--radius-sm)",
+                border: "1px solid var(--navy)", background: showLegacyEntry ? "var(--navy)" : "#ffffff", color: showLegacyEntry ? "#ffffff" : "var(--navy)", fontSize: 13, fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              Enter older proposal
+            </button>
+          )}
           <button
             onClick={persistSnapshot}
             style={{
@@ -411,6 +451,41 @@ export default function ProposalViewer({ proposals, onUpdateProposal, onLaunchJo
           )}
         </div>
       </div>
+
+      {showLegacyEntry && onAddLegacyProposal && (
+        <div style={{ marginBottom: 22, padding: 18, border: "1px solid var(--amber)", borderRadius: "var(--radius-md)", background: "#fffaf4", boxShadow: "var(--shadow-sm)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 900, color: "var(--navy)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Enter an older proposal</div>
+              <p style={{ marginTop: 4, fontSize: 12.5, color: "var(--ink-soft)", maxWidth: 640 }}>Use this for proposals created before the portal. Enter the numeric suffix only; the portal will store the full AFA-P-###### format and will not reuse a number already assigned.</p>
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--amber-dim)", padding: "5px 9px", borderRadius: 999, background: "var(--amber-pale)" }}>LEGACY RECORD</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 1fr", gap: 12, marginTop: 16 }}>
+            <label style={{ fontSize: 11.5, fontWeight: 800, color: "var(--ink-soft)" }}>Proposal no.
+              <input value={legacyDraft.legacyProposalNumber} onChange={updateLegacyDraft("legacyProposalNumber")} placeholder="10" inputMode="numeric" style={{ display: "block", width: "100%", marginTop: 5, padding: "9px 10px", border: "1px solid var(--border-color)", borderRadius: 6, background: "#ffffff" }} />
+            </label>
+            <label style={{ fontSize: 11.5, fontWeight: 800, color: "var(--ink-soft)" }}>Business name *
+              <input value={legacyDraft.businessName} onChange={updateLegacyDraft("businessName")} placeholder="Chew Boy" style={{ display: "block", width: "100%", marginTop: 5, padding: "9px 10px", border: "1px solid var(--border-color)", borderRadius: 6, background: "#ffffff" }} />
+            </label>
+            <label style={{ fontSize: 11.5, fontWeight: 800, color: "var(--ink-soft)" }}>Client name
+              <input value={legacyDraft.clientName} onChange={updateLegacyDraft("clientName")} placeholder="Client contact" style={{ display: "block", width: "100%", marginTop: 5, padding: "9px 10px", border: "1px solid var(--border-color)", borderRadius: 6, background: "#ffffff" }} />
+            </label>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+            <label style={{ fontSize: 11.5, fontWeight: 800, color: "var(--ink-soft)" }}>Email
+              <input value={legacyDraft.email} onChange={updateLegacyDraft("email")} placeholder="client@example.com" type="email" style={{ display: "block", width: "100%", marginTop: 5, padding: "9px 10px", border: "1px solid var(--border-color)", borderRadius: 6, background: "#ffffff" }} />
+            </label>
+            <label style={{ fontSize: 11.5, fontWeight: 800, color: "var(--ink-soft)" }}>Address
+              <input value={legacyDraft.address} onChange={updateLegacyDraft("address")} placeholder="Business address" style={{ display: "block", width: "100%", marginTop: 5, padding: "9px 10px", border: "1px solid var(--border-color)", borderRadius: 6, background: "#ffffff" }} />
+            </label>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
+            <button className="btn btn-secondary" onClick={() => setShowLegacyEntry(false)}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleLegacySubmit}>Save AFA-P-{legacyDraft.legacyProposalNumber || "######"}</button>
+          </div>
+        </div>
+      )}
 
       {/* Package Builder Controls */}
       <div style={{ background: "#ffffff", borderRadius: "var(--radius-md)", border: "1px solid var(--border-color)", padding: 24, marginBottom: 24, boxShadow: "var(--shadow-sm)" }}>

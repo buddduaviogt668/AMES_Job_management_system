@@ -31,3 +31,7 @@ A lower-page browser check confirmed the reference-style bank-transfer panel, `O
 ## Actual PDF inspection after first print-only fix
 
 The actual Chromium-generated PDF is A4 but still reports 3 pages. Page 1 is a clean, compact invoice matching the reference hierarchy. Page 2 is a clean, compact two-column Terms & Conditions page matching the reference. The third page is not caused by visible content overflow on the first two pages; it is caused by redundant page-break rules (`break-after` on page one combined with `break-before` on page two, plus the fixed-height sheet behavior) producing an extra blank/trailing page. The next correction should use one page-break mechanism only and avoid a trailing break after page two.
+
+## Proposal sequence UI verification
+
+The local Proposal Generator now visibly exposes an `Enter older proposal` action. Opening it shows a numeric proposal field defaulted to `10`, a Business name field defaulted to `Chew Boy`, client/contact fields, and a save action. The helper normalizes numeric suffix `10` to `AFA-P-100010`, rejects collisions, and leaves normal future proposal creation on the shared next-number sequence.

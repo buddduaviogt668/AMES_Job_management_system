@@ -24695,3 +24695,9 @@
 - [x] Separate print-only invoice markup from interactive editor controls and card-payment UI.
 - [x] Constrain the generated output to a clean two-page A4 invoice matching the attached reference.
 - [x] Generate and inspect an actual PDF, then rerun tests/build before pushing the correction.
+
+## Current request: correct proposal sequence for Chew Boy and Manning
+- [x] Audit current proposal records, jobs, invoices, and proposal-number generation for Chew Boy and MSS Manning Support Services.
+- [x] Set Chew Boy to AFA-P-100010 and MSS Manning Support Services to AFA-P-100011 without duplicating or overwriting live records.
+- [x] Support safe entry of the older Chew Boy proposal while preserving sequential numbering for future proposals.
+- [x] Verify proposal-to-job-to-invoice references and run tests/build before pushing.
