@@ -84,6 +84,16 @@ export default function InvoiceGenerator({
     });
   }, [settings]);
 
+  // Keep the visible document synchronized with the invoice list after a launch creates a new deposit invoice.
+  useEffect(() => {
+    if (isCreating) return;
+    setSelectedInvoice((current) => {
+      const newest = invoices[0] || null;
+      if (newest && newest.invoiceType === "deposit" && newest.id !== current?.id) return newest;
+      return (current && invoices.find((inv) => inv.id === current.id)) || newest;
+    });
+  }, [invoices, isCreating]);
+
   const setMeta = (key) => (val) => setMetaDraft((d) => ({ ...d, [key]: val }));
   const setInv = (patch) => setSelectedInvoice((prev) => (prev ? { ...prev, ...patch } : prev));
 
@@ -211,6 +221,13 @@ export default function InvoiceGenerator({
   const totalInclGst = subtotalExGst + gstAmount;
   const stripeFee = totalInclGst * (Number(metaDraft.stripeFeePct) || 0) / 100;
   const stripeCharged = totalInclGst + stripeFee;
+  const isDepositInvoice = Boolean(
+    selectedInvoice &&
+      (selectedInvoice.invoiceType === "deposit" ||
+        selectedInvoice.depositPercent === 50 ||
+        lineItemsOf(selectedInvoice).some((item) => /50%\s*deposit/i.test(item.description || "")))
+  );
+  const documentTitle = isDepositInvoice ? "50% DEPOSIT INVOICE" : "TAX INVOICE";
 
   return (
     <div className="invoice-page" style={{ padding: "32px 36px", maxWidth: 1200, margin: "0 auto" }}>
@@ -280,6 +297,11 @@ export default function InvoiceGenerator({
                   <span className="mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--navy)" }}>
                     {inv.invoiceNumber}
                   </span>
+                  {Boolean(inv.invoiceType === "deposit" || inv.depositPercent === 50 || lineItemsOf(inv).some((item) => /50%\s*deposit/i.test(item.description || ""))) && (
+                    <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#e8f3ec", color: "#17643a", letterSpacing: "0.04em" }}>
+                      DEPOSIT 50%
+                    </span>
+                  )}
                   <span
                     style={{
                       fontSize: 10.5,
@@ -297,7 +319,7 @@ export default function InvoiceGenerator({
                   {inv.businessName}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--ink-muted)", marginTop: 2 }}>
-                  Total: <strong>${fmtMoney(tot)} incl GST</strong>
+                  {inv.invoiceType === "deposit" || inv.depositPercent === 50 ? "Deposit total" : "Total"}: <strong>${fmtMoney(tot)} incl GST</strong>
                 </div>
               </div>
             );
@@ -324,8 +346,13 @@ export default function InvoiceGenerator({
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 26, fontWeight: 900, color: "var(--amber)", letterSpacing: "0.06em", fontFamily: "Georgia, serif" }}>
-                    TAX INVOICE
+                    {documentTitle}
                   </div>
+                  {isDepositInvoice && (
+                    <div style={{ marginTop: 5, fontSize: 11, fontWeight: 800, color: "#ffffff", letterSpacing: "0.08em" }}>
+                      MANNING SUPPORT SERVICES · 50% DEPOSIT
+                    </div>
+                  )}
                   <input
                     value={selectedInvoice.invoiceNumber || ""}
                     onChange={(e) => setInv({ invoiceNumber: e.target.value })}
@@ -425,6 +452,15 @@ export default function InvoiceGenerator({
                       onChange={(e) => setInv({ jobRef: e.target.value })}
                       style={{ fontSize: 13, fontWeight: 800, color: "var(--navy)", border: "none", borderBottom: "1px dashed var(--border-color)", background: "transparent", outline: "none" }}
                     />
+
+                    {isDepositInvoice && (
+                      <>
+                        <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Invoice Type:</span>
+                        <strong style={{ color: "#17643a" }}>50% Deposit Invoice</strong>
+                        <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Job No:</span>
+                        <strong className="mono" style={{ color: "var(--navy)" }}>{selectedInvoice.jobNumber || selectedInvoice.jobRef || "—"}</strong>
+                      </>
+                    )}
 
                     <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>Site Date:</span>
                     <input
@@ -554,6 +590,12 @@ export default function InvoiceGenerator({
               {/* Totals Summary Panel — Sydney Automation Co exact style */}
               <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 36 }}>
                 <div style={{ width: 340 }}>
+                  {isDepositInvoice && (
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--border-light)", fontSize: 13.5, color: "#17643a" }}>
+                      <span style={{ fontWeight: 700 }}>Deposit percentage</span>
+                      <span style={{ fontWeight: 800 }}>50% of approved proposal</span>
+                    </div>
+                  )}
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--border-light)", fontSize: 13.5, color: "var(--ink-soft)" }}>
                     <span>Subtotal (Ex GST)</span>
                     <span style={{ fontWeight: 700, color: "var(--navy)" }}>${fmtMoney(subtotalExGst)}</span>
@@ -563,9 +605,14 @@ export default function InvoiceGenerator({
                     <span style={{ fontWeight: 700, color: "var(--navy)" }}>${fmtMoney(gstAmount)}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 16px", background: "var(--navy)", borderRadius: 8, marginTop: 8, color: "#ffffff", alignItems: "center" }}>
-                    <span style={{ fontSize: 15, fontWeight: 900, letterSpacing: "0.05em" }}>TOTAL DUE</span>
+                    <span style={{ fontSize: 15, fontWeight: 900, letterSpacing: "0.05em" }}>{isDepositInvoice ? "DEPOSIT TOTAL DUE" : "TOTAL DUE"}</span>
                     <span style={{ fontSize: 22, fontWeight: 900, color: "var(--amber)", fontFamily: "var(--font-mono)" }}>${fmtMoney(totalInclGst)}</span>
                   </div>
+                  {isDepositInvoice && (
+                    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: "#e8f3ec", color: "#17643a", fontSize: 12, fontWeight: 700 }}>
+                      This invoice is the 50% deposit for {selectedInvoice.businessName || "the approved engagement"}. The balance remains payable under the agreed engagement terms.
+                    </div>
+                  )}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", marginTop: 8, background: "#635bff", color: "#ffffff", borderRadius: 8 }}>
                     <span style={{ fontSize: 13, fontWeight: 800 }}>If paying by card (incl. {metaDraft.stripeFeePct}% Stripe fee)</span>
                     <span style={{ fontSize: 17, fontWeight: 900, fontFamily: "var(--font-mono)" }}>${fmtMoney(stripeCharged)}</span>

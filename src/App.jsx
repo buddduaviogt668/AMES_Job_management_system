@@ -297,12 +297,67 @@ export default function App() {
       phases,
     };
 
+    // Idempotent check: if deposit invoice already exists for this proposal, don't create duplicate
+    const existingDepositInv = invoices.find((inv) => inv.jobRef === proposal.proposalNumber || inv.proposalId === proposal.id);
+    let createdInvoiceNumber = existingDepositInv ? existingDepositInv.invoiceNumber : null;
+
+    let updatedInvoices = [...invoices];
+    if (!existingDepositInv) {
+      // Compute 50% deposit line items from proposal pricing snapshot
+      const prices = (proposal.snapshot && proposal.snapshot.phasePricesExGst) || { 1: 595, 2: 1500, 3: 450, 4: 350 };
+      const included = (proposal.snapshot && proposal.snapshot.includedPhases) || { 1: true, 2: true, 3: true, 4: true };
+      const subtotalExGst = [1, 2, 3, 4]
+        .filter((pNum) => included[pNum])
+        .reduce((sum, pNum) => sum + (Number(prices[pNum]) || 0), 0);
+
+      const depositExGst = subtotalExGst * 0.5;
+
+      const maxInvoiceNum = [...invoices, ...proposals].reduce((acc, item) => {
+        const raw = item && (item.invoiceNumber || item.proposalNumber);
+        const m = typeof raw === "string" && raw.match(/^AFA-(?:P-)?(\d+)$/);
+        return m ? Math.max(acc, parseInt(m[1], 10)) : acc;
+      }, 100009);
+
+      const nextInvNum = maxInvoiceNum + 1;
+      createdInvoiceNumber = `AFA-${nextInvNum}`;
+
+      const depositInvoice = {
+        id: "inv_" + Date.now(),
+        invoiceNumber: createdInvoiceNumber,
+        jobRef: proposal.proposalNumber,
+        proposalId: proposal.id,
+        jobId: newJob.id,
+        proposalReference: proposal.proposalNumber,
+        jobNumber: newJob.jobNumber,
+        invoiceType: "deposit",
+        depositPercent: 50,
+        depositExGst,
+        clientName: proposal.clientName || "Client",
+        businessName: proposal.businessName || "Food Business",
+        email: proposal.email || "",
+        address: proposal.address || "",
+        issueDate: new Date().toISOString().split("T")[0],
+        dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split("T")[0],
+        status: "Unpaid",
+        lineItems: [
+          {
+            description: `50% Deposit — ${proposal.proposalNumber} (${proposal.businessName} Compliance Program)`,
+            priceExGst: depositExGst,
+            qty: 1,
+          },
+        ],
+      };
+
+      updatedInvoices = [depositInvoice, ...invoices];
+      setInvoices(updatedInvoices);
+    }
+
     setJobs((prev) => [newJob, ...prev]);
     setProposals((prev) => prev.map((p) => (p.id === proposal.id ? { ...p, status: "Approved", launchedJobId: newJob.id } : p)));
     setClients((prev) =>
       prev.map((c) => (c.businessName === proposal.businessName ? { ...c, status: "Job In Progress" } : c))
     );
-    toast(`Job ${newJob.jobNumber} launched`, "success");
+    toast(`Job ${newJob.jobNumber} launched & 50% deposit invoice (${createdInvoiceNumber}) generated`, "success");
     setActiveTab("jobboard");
   };
 
