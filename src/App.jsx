@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
 import ClientCRM from "./components/ClientCRM";
@@ -163,13 +163,10 @@ export default function App() {
       return buildDefaultQuestionsData();
     }
   });
-  const proposalMigrationApplied = useRef(false);
-
   useEffect(() => {
-    if (proposalMigrationApplied.current || !proposals.length) return;
+    if (!proposals.length) return;
     const result = migrateManningProposalNumber({ proposals, jobs, invoices });
     if (!result.proposal) return;
-    proposalMigrationApplied.current = true;
     if (result.blocked) {
       toast(`Manning proposal number could not be changed: ${result.reason}`, "error");
       return;

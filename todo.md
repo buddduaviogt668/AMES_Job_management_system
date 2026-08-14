@@ -24701,3 +24701,9 @@
 - [x] Set Chew Boy to AFA-P-100010 and MSS Manning Support Services to AFA-P-100011 without duplicating or overwriting live records.
 - [x] Support safe entry of the older Chew Boy proposal while preserving sequential numbering for future proposals.
 - [x] Verify proposal-to-job-to-invoice references and run tests/build before pushing.
+
+## Current request: Manning still displays as AFA-P-100010
+- [x] Trace why the stored MSS Manning proposal remains AFA-P-100010 in the Proposal Generator dropdown after the previous migration.
+- [x] Make Manning normalization run after local-storage, cloud-sync, and backup-restore data loads, and update linked job/invoice references.
+- [x] Verify the dropdown displays AFA-P-100011 after reload without deleting or overwriting records.
+- [x] Run tests/build and push the persistent migration correction.

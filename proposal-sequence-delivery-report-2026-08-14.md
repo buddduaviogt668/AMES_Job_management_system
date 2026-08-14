@@ -15,3 +15,15 @@ The Proposal Generator now includes an `Enter older proposal` form for proposals
 Eight unit tests pass, lint reports zero errors with one pre-existing Toasts Fast Refresh warning, and the production build completes successfully. The local browser preview confirmed the legacy-entry action and the numeric `10` Chew Boy form defaults.
 
 No customer, job, invoice, payment, or proposal record was deleted. No invoice was sent or marked paid.
+
+## Persistent reload verification setup
+
+A temporary local-storage test record was injected with MSS Manning Support Services at AFA-P-100010, a linked job at AFA-P-100010, and a deposit invoice reference at AFA-P-100010. The portal was reloaded to verify that the post-load migration repairs the dropdown and linked records. The original local test values were preserved in session storage and are not live customer data.
+
+The post-load browser check surfaced a blank Dashboard because the intentionally minimal synthetic invoice test record lacked fields expected by the dashboard, not because the proposal migration threw an error. The local browser console showed no migration exception, and the original local test data was restored immediately after the check. The pure migration regression tests cover the same proposal/job/invoice repair path with complete fixtures.
+
+A clean reload test with only a temporary legacy Manning proposal added completed successfully: the portal loaded normally after migration, the dashboard rendered, and the active job reference was normalized to AFA-P-100011. The temporary record is still local-only and will be removed before final verification.
+
+## Dropdown verification result
+
+After reloading the portal with a temporary stored Manning proposal at AFA-P-100010, the Proposal Generator dropdown displayed `AFA-P-100011 — Manning Support Services — Approved`. The temporary local-only record was removed immediately after verification.

@@ -37,3 +37,15 @@ test("blocks a Manning migration when AFA-P-100011 is already assigned", () => {
   assert.equal(result.blocked, true);
   assert.equal(result.changed, false);
 });
+
+test("repairs linked drift even when Manning proposal is already AFA-P-100011", () => {
+  const result = migrateManningProposalNumber({
+    proposals: [{ id: "p-manning", proposalNumber: "AFA-P-100011", businessName: "Manning Support Services" }],
+    jobs: [{ id: "j-manning", jobNumber: "AFA-P-100010", businessName: "Manning Support Services" }],
+    invoices: [{ id: "i-manning", jobRef: "AFA-P-100010", businessName: "Manning Support Services", lineItems: [{ description: "50% Deposit — AFA-P-100010" }] }],
+  });
+  assert.equal(result.changed, true);
+  assert.equal(result.jobs[0].jobNumber, "AFA-P-100011");
+  assert.equal(result.invoices[0].jobRef, "AFA-P-100011");
+  assert.equal(result.invoices[0].lineItems[0].description, "50% Deposit — AFA-P-100011");
+});
