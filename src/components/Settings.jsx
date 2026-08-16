@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Save, CloudUpload, CloudDownload, Download, Upload, RefreshCw, CheckCircle2, CloudOff, Building2, ShieldCheck } from "lucide-react";
+import { Save, CloudUpload, CloudDownload, Download, Upload, RefreshCw, CheckCircle2, CloudOff, Building2, ShieldCheck, FolderOpen, Link2 } from "lucide-react";
 import { isSupabaseConfigured } from "../lib/sync";
 
 const field = (label, value, onChange, { type = "text", placeholder, mono = false, disabled = false } = {}) => (
@@ -36,7 +36,7 @@ const sectionCard = (title, subtitle, children) => (
   </div>
 );
 
-export default function Settings({ settings, onUpdateSettings, onExportBackup, onRestoreBackup, syncStatus, onPush, onPull }) {
+export default function Settings({ settings, onUpdateSettings, onExportBackup, onRestoreBackup, syncStatus, onPush, onPull, oneDriveStatus, onConnectOneDrive, onDisconnectOneDrive }) {
   const [form, setForm] = useState(settings || {});
   const restoreRef = React.useRef(null);
 
@@ -135,6 +135,48 @@ export default function Settings({ settings, onUpdateSettings, onExportBackup, o
             Auto-push occurs 3 seconds after any change while connected. Pull merges the cloud copy over local data.
           </p>
           <style>{`.spin{animation:spin 0.9s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        </>
+      )}
+
+      <div style={{ height: 20 }} />
+
+      {/* OneDrive for Business */}
+      {sectionCard(
+        <><FolderOpen size={16} color="var(--amber)" /> OneDrive for Business</>,
+        "Shared document storage for Sydney Automation Co. and Ames Food Advisory.",
+        <>
+          <div
+            style={{
+              display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: "var(--radius-sm)",
+              border: oneDriveStatus?.connected ? "1px solid var(--success-bg)" : "1px solid var(--warning-bg)",
+              background: oneDriveStatus?.connected ? "var(--success-bg)" : "var(--warning-bg)",
+              fontSize: 13, color: oneDriveStatus?.connected ? "var(--success)" : "var(--warning-text)", marginBottom: 14,
+            }}
+          >
+            {oneDriveStatus?.connected ? <CheckCircle2 size={16} /> : <CloudOff size={16} />}
+            <div>
+              <strong style={{ display: "block" }}>{oneDriveStatus?.connected ? "Connected to OneDrive for Business" : "Not connected"}</strong>
+              <span style={{ display: "block", marginTop: 3 }}>
+                {oneDriveStatus?.connected
+                  ? `Signed in as ${oneDriveStatus.accountName || oneDriveStatus.accountUsername || "Microsoft 365 user"}`
+                  : "Connect with the Sydney Automation Co. Microsoft 365 account before uploading documents."}
+              </span>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "var(--stone)", borderRadius: "var(--radius-sm)", marginBottom: 14, fontSize: 12.5, color: "var(--ink-soft)" }}>
+            <Link2 size={15} color="var(--amber)" />
+            <span><strong>Root:</strong> Ames Food Advisory · <strong>Folder model:</strong> Proposal, Invoices, Job Documents</span>
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {oneDriveStatus?.connected ? (
+              <button className="btn btn-outline" onClick={onDisconnectOneDrive}>Disconnect OneDrive</button>
+            ) : (
+              <button className="btn btn-primary" onClick={onConnectOneDrive}><FolderOpen size={15} /> Connect OneDrive</button>
+            )}
+          </div>
+          <p style={{ fontSize: 11.5, color: "var(--ink-muted)", marginTop: 10 }}>
+            New proposals create the approved client folder structure. DOCX proposals and invoice PDFs are uploaded only after you connect the Microsoft 365 account.
+          </p>
         </>
       )}
 

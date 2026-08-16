@@ -7,13 +7,15 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "test": "node --test src/lib/invoiceCalculations.test.js src/lib/proposalNumbering.test.js",
+    "test": "node --test src/lib/invoiceCalculations.test.js src/lib/proposalNumbering.test.js src/lib/oneDrive.test.js",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@azure/msal-browser": "^5.18.0",
     "@supabase/supabase-js": "^2.112.2",
     "docx": "^9.7.1",
     "file-saver": "^2.0.5",
+    "html2pdf.js": "^0.14.0",
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

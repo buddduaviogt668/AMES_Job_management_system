@@ -52,7 +52,7 @@ const STATUS_TONE = {
   Lost: { bg: "var(--danger-bg)", color: "var(--danger)" },
 };
 
-export default function ProposalViewer({ proposals, onUpdateProposal, onLaunchJob, onAddLegacyProposal, setActiveTab }) {
+export default function ProposalViewer({ proposals, onUpdateProposal, onLaunchJob, onAddLegacyProposal, onUploadDocument, setActiveTab }) {
   const [selectedId, setSelectedId] = useState(proposals[0]?.id || null);
   const [showLegacyEntry, setShowLegacyEntry] = useState(false);
   const [legacyDraft, setLegacyDraft] = useState({
@@ -340,8 +340,24 @@ export default function ProposalViewer({ proposals, onUpdateProposal, onLaunchJo
       ],
     });
 
+    const fileName = `AMES_Proposal_${selected.proposalNumber || "proposal"}_${businessName.replace(/\s+/g, "_")}.docx`;
     const blob = await Packer.toBlob(doc);
-    saveAs(blob, `AMES_Proposal_${businessName.replace(/\s+/g, "_")}.docx`);
+    saveAs(blob, fileName);
+    if (onUploadDocument) {
+      try {
+        await onUploadDocument({
+          kind: "proposal",
+          businessName,
+          proposalNumber: selected.proposalNumber,
+          file: blob,
+          fileName,
+          contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        });
+        toast("Proposal saved to OneDrive", "success");
+      } catch (error) {
+        toast(error.message || "Proposal downloaded but could not be saved to OneDrive", "error");
+      }
+    }
   };
 
   return (
@@ -425,8 +441,7 @@ export default function ProposalViewer({ proposals, onUpdateProposal, onLaunchJo
               border: "1px solid var(--primary)", background: "#ffffff", color: "var(--primary)", fontSize: 13.5, fontWeight: 700, cursor: "pointer",
             }}
           >
-            <Download size={16} /> DOCX
-          </button>
+            <Download size={16} /> DOCX</button>
 
           {selected.status === "Approved" ? (
             <button

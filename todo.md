@@ -24707,3 +24707,28 @@
 - [x] Make Manning normalization run after local-storage, cloud-sync, and backup-restore data loads, and update linked job/invoice references.
 - [x] Verify the dropdown displays AFA-P-100011 after reload without deleting or overwriting records.
 - [x] Run tests/build and push the persistent migration correction.
+
+## Current request: OneDrive integration for proposals and invoices
+
+- [x] Define the standard folder structure: `Ames Food Advisory / Client Name / Proposal Number / [Proposal, Invoices, Job Documents]`.
+- [x] Add OneDrive connector configuration and folder-generation helpers to the portal.
+- [x] Connect proposal generation and job launch to automatically create the OneDrive folder hierarchy; add proposal DOCX and invoice PDF upload actions.
+- [x] Verify folder-model tests, local Settings UI, duplicate prevention, and offline-safe behavior.
+- [ ] Configure the production Vercel environment variables and Microsoft SPA redirect URI, then complete the first Microsoft sign-in.
+
+## OneDrive folder structure confirmed
+- [x] Use `Ames Food Advisory / Client Name / AFA-P-###### / Proposal` for proposal files.
+- [x] Use `Ames Food Advisory / Client Name / AFA-###### / Invoices` for invoice files.
+- [x] Use `Ames Food Advisory / Client Name / AFA-###### / Job Documents` for job documents.
+## OneDrive for Business configuration confirmed
+- [ ] Connect the deployed portal to the Sydney Automation Co. OneDrive for Business account and complete Microsoft sign-in.
+- [x] Use `Sydney Automation Co. / Ames Food Advisory / Client Name / AFA-P-######` as the shared root and proposal folder model.
+- [x] Obtain and document the Microsoft tenant ID and application/client ID; use PKCE instead of shipping a client secret to the browser.
+## OneDrive folder link verified
+- [x] Verified SharePoint/OneDrive root link: `George Skarmoutsos / Ames Food Advisory` (`sydneyautomationco-my.sharepoint.com`).
+- [x] Implement the automated folder generator (`Ames Food Advisory / Client Name / AFA-P-###### / Proposal` etc.) to target this verified location.
+## Microsoft Entra identifiers supplied
+- [x] Application (client) ID supplied for the Sydney Automation Co. tenant.
+- [x] Directory (tenant) ID supplied for the Sydney Automation Co. tenant.
+- [ ] Add the exact production Vercel origin as a **SPA** redirect URI and configure the matching Vercel environment variables.
+- [x] Keep the client secret out of source control and browser variables; the deployed React app uses MSAL PKCE with delegated `Files.ReadWrite`.

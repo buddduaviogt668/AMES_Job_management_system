@@ -22,6 +22,13 @@ import useCloudSync from "./hooks/useCloudSync";
 import { downloadBackup, parseBackup } from "./lib/sync";
 import { migrateManningProposalNumber, normalizeProposalNumber } from "./lib/proposalNumbering";
 import {
+  connectOneDrive,
+  createOneDriveFoldersForRecord,
+  disconnectOneDrive,
+  getOneDriveStatus,
+  uploadDocumentToOneDrive,
+} from "./lib/oneDrive";
+import {
   INITIAL_CLIENTS,
   INITIAL_JOBS,
   INITIAL_PROPOSALS,
@@ -121,6 +128,7 @@ export default function App() {
   const [kmEntries, setKmEntries] = useState(() => loadLS("ames_km_entries", INITIAL_KM_ENTRIES));
   const [recurringItems, setRecurringItems] = useState(() => loadLS("ames_recurring", INITIAL_RECURRING));
   const [settings, setSettings] = useState(() => ({ ...INITIAL_SETTINGS, ...loadLS("ames_settings", {}) }));
+  const [oneDriveStatus, setOneDriveStatus] = useState({ configured: false, connected: false });
 
   const [invoices, setInvoices] = useState(() => {
     const parsed = loadLS("ames_invoices", null);
@@ -163,6 +171,10 @@ export default function App() {
       return buildDefaultQuestionsData();
     }
   });
+  useEffect(() => {
+    getOneDriveStatus().then(setOneDriveStatus).catch(() => setOneDriveStatus({ configured: false, connected: false }));
+  }, []);
+
   useEffect(() => {
     if (!proposals.length) return;
     const result = migrateManningProposalNumber({ proposals, jobs, invoices });
@@ -258,6 +270,11 @@ export default function App() {
       proposalNumber: assignedProposalNumber,
     };
     setProposals((prev) => [proposal, ...prev]);
+    if (oneDriveStatus.connected) {
+      void createOneDriveFoldersForRecord({ businessName: proposal.businessName, proposalNumber: proposal.proposalNumber })
+        .then(() => toast("OneDrive folders created for the proposal", "success"))
+        .catch((error) => toast(error.message || "Proposal saved, but OneDrive folders could not be created", "error"));
+    }
     setClients((prev) =>
       prev.map((c) =>
         c.businessName === proposal.businessName ? { ...c, status: "Active Proposal" } : c
@@ -424,6 +441,11 @@ export default function App() {
       phases: DEFAULT_PHASES.map((ph) => ({ ...ph })),
     };
     setJobs((prev) => [newJob, ...prev]);
+    if (oneDriveStatus.connected) {
+      void createOneDriveFoldersForRecord({ businessName: newJob.businessName, proposalNumber: newJob.jobNumber, invoiceNumber: createdInvoiceNumber })
+        .then(() => toast("OneDrive folders ready for the job", "success"))
+        .catch((error) => toast(error.message || "Job launched, but OneDrive folders could not be created", "error"));
+    }
     toast(`Job ${newJob.jobNumber} booked`, "success");
     return newJob;
   };
@@ -467,6 +489,32 @@ export default function App() {
   const handleAddRecurring = (item) => setRecurringItems((prev) => [item, ...prev]);
   const handleUpdateRecurring = (updated) => setRecurringItems((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
   const handleDeleteRecurring = (id) => setRecurringItems((prev) => prev.filter((r) => r.id !== id));
+
+  // ---- OneDrive ----
+  const handleConnectOneDrive = async () => {
+    try {
+      const next = await connectOneDrive();
+      setOneDriveStatus(next);
+      toast(`OneDrive connected${next.accountName ? ` as ${next.accountName}` : ""}`, "success");
+    } catch (error) {
+      toast(error.message || "Could not connect to OneDrive", "error");
+    }
+  };
+
+  const handleDisconnectOneDrive = async () => {
+    try {
+      const next = await disconnectOneDrive();
+      setOneDriveStatus(next);
+      toast("OneDrive disconnected", "info");
+    } catch (error) {
+      toast(error.message || "Could not disconnect OneDrive", "error");
+    }
+  };
+
+  const handleUploadDocument = async (payload) => {
+    if (!oneDriveStatus.connected) throw new Error("Connect OneDrive in Settings before uploading documents.");
+    return uploadDocumentToOneDrive(payload);
+  };
 
   // ---- Settings ----
   const handleUpdateSettings = (patch) => {
@@ -604,6 +652,7 @@ export default function App() {
             onUpdateProposal={handleUpdateProposal}
             onLaunchJob={handleLaunchJob}
             onAddLegacyProposal={handleSaveProposal}
+            onUploadDocument={handleUploadDocument}
             setActiveTab={setActiveTab}
           />
         )}
@@ -618,6 +667,7 @@ export default function App() {
             onUpdateInvoice={handleUpdateInvoice}
             onDeleteInvoice={handleDeleteInvoice}
             onUpdateSettings={handleUpdateSettings}
+            onUploadDocument={handleUploadDocument}
           />
         )}
 
@@ -703,6 +753,9 @@ export default function App() {
             syncStatus={syncStatus}
             onPush={pushNow}
             onPull={pullNow}
+            oneDriveStatus={oneDriveStatus}
+            onConnectOneDrive={handleConnectOneDrive}
+            onDisconnectOneDrive={handleDisconnectOneDrive}
           />
         )}
       </main>

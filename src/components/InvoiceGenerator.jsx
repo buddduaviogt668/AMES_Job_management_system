@@ -5,6 +5,7 @@ import AMESLogo from "./common/AMESLogo";
 import InvoicePrintDocument from "./InvoicePrintDocument";
 import { toast } from "./common/Toasts";
 import { fullLineItemsOf, invoiceTypeOf, itemTotal, lineItemsOf } from "../lib/invoiceCalculations";
+import { invoicePrintElementToPdf } from "../lib/documentExports";
 
 const fmtMoney = (n) => (isFinite(n) ? n.toFixed(2) : "0.00");
 
@@ -47,6 +48,7 @@ export default function InvoiceGenerator({
   onUpdateInvoice,
   onDeleteInvoice,
   onUpdateSettings,
+  onUploadDocument,
 }) {
   const [selectedInvoice, setSelectedInvoice] = useState(() => invoices[0] || null);
   const [isCreating, setIsCreating] = useState(false);
@@ -259,6 +261,28 @@ export default function InvoiceGenerator({
     toast("Invoice deleted", "info");
   };
 
+  const handleSaveToOneDrive = async () => {
+    if (!selectedInvoice || !onUploadDocument) return;
+    try {
+      const safeBusinessName = (selectedInvoice.businessName || "Client").replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "");
+      const fileName = `AMES_Invoice_${selectedInvoice.invoiceNumber || "invoice"}_${safeBusinessName}.pdf`;
+      const printable = document.querySelector(".invoice-print-only");
+      const pdf = await invoicePrintElementToPdf(printable, fileName);
+      await onUploadDocument({
+        kind: "invoice",
+        businessName: selectedInvoice.businessName,
+        proposalNumber: selectedInvoice.proposalRef || selectedInvoice.jobRef,
+        invoiceNumber: selectedInvoice.invoiceNumber,
+        file: pdf,
+        fileName,
+        contentType: "application/pdf",
+      });
+      toast("Invoice PDF saved to OneDrive", "success");
+    } catch (error) {
+      toast(error.message || "Could not save invoice to OneDrive", "error");
+    }
+  };
+
   const handleChase = () => {
     if (!selectedInvoice) return;
     const t = selectedInvoice;
@@ -317,6 +341,11 @@ export default function InvoiceGenerator({
           {selectedInvoice && (
             <button className="btn btn-secondary" onClick={() => window.print()}>
               <Printer size={15} /> Print / Save PDF
+            </button>
+          )}
+          {selectedInvoice && onUploadDocument && (
+            <button className="btn btn-outline" onClick={handleSaveToOneDrive}>
+              Save Invoice to OneDrive
             </button>
           )}
           <button className="btn btn-primary" onClick={handleOpenNewInvoice}>
